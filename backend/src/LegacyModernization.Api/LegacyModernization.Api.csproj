@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LegacyModernization.Core\LegacyModernization.Core.csproj" />
+    <ProjectReference Include="..\LegacyModernization.Analyzer\LegacyModernization.Analyzer.csproj" />
+    <ProjectReference Include="..\LegacyModernization.LLM\LegacyModernization.LLM.csproj" />
+    <ProjectReference Include="..\LegacyModernization.TestGenerator\LegacyModernization.TestGenerator.csproj" />
+    <ProjectReference Include="..\LegacyModernization.Verifier\LegacyModernization.Verifier.csproj" />
+  </ItemGroup>
+
+</Project>

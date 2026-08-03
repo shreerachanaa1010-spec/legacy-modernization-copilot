@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LegacyModernization.Analyzer/LegacyModernization.Analyzer.csproj" />
+    <Project Path="src/LegacyModernization.Api/LegacyModernization.Api.csproj" />
+    <Project Path="src/LegacyModernization.Core/LegacyModernization.Core.csproj" />
+    <Project Path="src/LegacyModernization.LLM/LegacyModernization.LLM.csproj" />
+    <Project Path="src/LegacyModernization.TestGenerator/LegacyModernization.TestGenerator.csproj" />
+    <Project Path="src/LegacyModernization.Verifier/LegacyModernization.Verifier.csproj" />
+  </Folder>
+</Solution>
