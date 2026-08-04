@@ -1,7 +1,8 @@
 using System;
-using Legacy.Services;
+using LegacySampleProject;
 
 Console.WriteLine("Sample project for LegacyModernization analyzer");
 
 var svc = new CustomerService();
-Console.WriteLine(svc.GetCustomer());
+svc.TestConfigureAwait().GetAwaiter().GetResult();
+Console.WriteLine("Done");
