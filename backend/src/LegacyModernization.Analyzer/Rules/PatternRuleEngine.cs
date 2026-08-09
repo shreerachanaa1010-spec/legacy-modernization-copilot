@@ -3,6 +3,9 @@ using Microsoft.CodeAnalysis;
 
 namespace LegacyModernization.Analyzer.Rules;
 
+/// <summary>
+/// Aggregates legacy-pattern rules and runs them against a syntax tree.
+/// </summary>
 public class PatternRuleEngine
 {
     private readonly List<ILegacyRule> _rules;

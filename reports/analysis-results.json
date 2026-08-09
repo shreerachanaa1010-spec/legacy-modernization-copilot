@@ -1,0 +1,70 @@
+{
+  "projectName": "LegacySampleProject",
+  "classes": [
+    {
+      "name": "CustomerService",
+      "namespace": "",
+      "methods": [
+        {
+          "name": "BadMethod",
+          "returnType": "void"
+        },
+        {
+          "name": "TestConfigureAwait",
+          "returnType": "Task"
+        },
+        {
+          "name": "Dispose",
+          "returnType": "void"
+        }
+      ]
+    }
+  ],
+  "issues": [
+    {
+      "ruleId": "LMC001",
+      "title": "Avoid Task.Result",
+      "description": "Task.Result blocks the calling thread and may cause deadlocks.",
+      "severity": "High",
+      "filePath": "C:\\Rachana_project\\legacy-modernization-copilot\\samples\\LegacySampleProject\\CustomerService.cs",
+      "lineNumber": 13,
+      "codeSnippet": "task.Result"
+    },
+    {
+      "ruleId": "LMC001",
+      "title": "Avoid Task.Wait()",
+      "description": "Task.Wait blocks the calling thread.",
+      "severity": "High",
+      "filePath": "C:\\Rachana_project\\legacy-modernization-copilot\\samples\\LegacySampleProject\\CustomerService.cs",
+      "lineNumber": 15,
+      "codeSnippet": "task.Wait()"
+    },
+    {
+      "ruleId": "LMC002",
+      "title": "WebClient is obsolete",
+      "description": "System.Net.WebClient is obsolete. Use HttpClient instead.",
+      "severity": "Medium",
+      "filePath": "C:\\Rachana_project\\legacy-modernization-copilot\\samples\\LegacySampleProject\\CustomerService.cs",
+      "lineNumber": 17,
+      "codeSnippet": "new WebClient()"
+    },
+    {
+      "ruleId": "LMC003",
+      "title": "Missing ConfigureAwait(false)",
+      "description": "Awaited tasks in library code should use ConfigureAwait(false) to avoid capturing the synchronization context.",
+      "severity": "Medium",
+      "filePath": "C:\\Rachana_project\\legacy-modernization-copilot\\samples\\LegacySampleProject\\CustomerService.cs",
+      "lineNumber": 22,
+      "codeSnippet": "await Task.Delay(1)"
+    },
+    {
+      "ruleId": "LMC004",
+      "title": "Non-standard IDisposable pattern",
+      "description": "Class implements IDisposable but does not define Dispose(bool disposing).",
+      "severity": "Medium",
+      "filePath": "C:\\Rachana_project\\legacy-modernization-copilot\\samples\\LegacySampleProject\\CustomerService.cs",
+      "lineNumber": 7,
+      "codeSnippet": "CustomerService"
+    }
+  ]
+}

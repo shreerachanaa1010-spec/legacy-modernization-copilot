@@ -9,6 +9,10 @@ using System.Text.Json;
 
 namespace LegacyModernization.Analyzer.Services;
 
+/// <summary>
+/// Analyzes a .NET project using Roslyn and runs legacy-pattern rules.
+/// Produces a ProjectAnalysisResult containing classes, methods and detected issues.
+/// </summary>
 public class ProjectAnalyzer : IProjectAnalyzer
 {
     public async Task<ProjectAnalysisResult> AnalyzeAsync(string projectPath)

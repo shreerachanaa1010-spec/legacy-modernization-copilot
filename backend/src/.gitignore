@@ -20,3 +20,7 @@ Thumbs.db
 # Environment
 .env
 .env.*
+
+
+# Ignore AnalyzerHost appsettings containing secrets/api keys
+LegacyModernization.LLM/Services/appsettings.json

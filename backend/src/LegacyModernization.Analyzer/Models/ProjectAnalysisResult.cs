@@ -1,5 +1,8 @@
 namespace LegacyModernization.Analyzer.Models;
 
+/// <summary>
+/// Aggregated analysis output for a project: project name, classes and detected issues.
+/// </summary>
 public class ProjectAnalysisResult
 {
     public string ProjectName { get; set; } = "";

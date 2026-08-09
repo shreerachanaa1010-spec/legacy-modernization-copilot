@@ -6,6 +6,9 @@ using System.Linq;
 
 namespace LegacyModernization.Analyzer.Rules;
 
+/// <summary>
+/// Detects uses of System.Net.WebClient which is obsolete; recommends HttpClient instead.
+/// </summary>
 public class WebClientRule : ILegacyRule
 {
     public IEnumerable<AnalysisIssue> Analyze(

@@ -9,11 +9,16 @@
 
   <ItemGroup>
 	<ProjectReference Include="..\..\backend\src\LegacyModernization.Analyzer\LegacyModernization.Analyzer.csproj" />
+	<ProjectReference Include="..\..\backend\src\LegacyModernization.LLM\LegacyModernization.LLM.csproj" />
   </ItemGroup>
   <ItemGroup>
 	<!-- Ensure MSBuild runtime assets are excluded to avoid MSBL001 when loading MSBuild via Microsoft.Build.Locator -->
 	<PackageReference Include="Microsoft.Build.Framework" Version="17.11.48" PrivateAssets="all" ExcludeAssets="runtime" />
 	  <PackageReference Include="Microsoft.Build.Locator" Version="1.11.2" />
   </ItemGroup>
-
+  <ItemGroup>
+		<None Update="appsettings.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+  </ItemGroup>
 </Project>

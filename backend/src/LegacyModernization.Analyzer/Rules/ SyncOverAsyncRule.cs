@@ -6,6 +6,9 @@ using System.Linq;
 
 namespace LegacyModernization.Analyzer.Rules;
 
+/// <summary>
+/// Detects synchronous waits over asynchronous tasks (Task.Result / Task.Wait) which can deadlock.
+/// </summary>
 public class SyncOverAsyncRule : ILegacyRule
 {
     public IEnumerable<AnalysisIssue> Analyze(

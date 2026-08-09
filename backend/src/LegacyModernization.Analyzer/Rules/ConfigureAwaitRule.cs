@@ -6,6 +6,9 @@ using System.Linq;
 
 namespace LegacyModernization.Analyzer.Rules;
 
+/// <summary>
+/// Flags awaited expressions that do not use ConfigureAwait(false) where appropriate.
+/// </summary>
 public class ConfigureAwaitRule : ILegacyRule
 {
     public IEnumerable<AnalysisIssue> Analyze(SyntaxNode root, string filePath)

@@ -6,6 +6,9 @@ using System.Linq;
 
 namespace LegacyModernization.Analyzer.Rules;
 
+/// <summary>
+/// Detects classes that implement IDisposable but do not follow the recommended dispose pattern.
+/// </summary>
 public class DisposePatternRule : ILegacyRule
 {
     public IEnumerable<AnalysisIssue> Analyze(

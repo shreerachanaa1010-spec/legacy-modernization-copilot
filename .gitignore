@@ -72,3 +72,6 @@ packages/
 node_modules/
 .DS_Store
 Thumbs.db
+
+# Ignore AnalyzerHost appsettings containing secrets/api keys
+tools/AnalyzerHost/appsettings.json

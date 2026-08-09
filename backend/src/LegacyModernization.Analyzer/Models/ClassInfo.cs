@@ -1,5 +1,8 @@
 namespace LegacyModernization.Analyzer.Models;
 
+/// <summary>
+/// Holds simple information about a class and its methods.
+/// </summary>
 public class ClassInfo
 {
     public string Name { get; set; } = "";
