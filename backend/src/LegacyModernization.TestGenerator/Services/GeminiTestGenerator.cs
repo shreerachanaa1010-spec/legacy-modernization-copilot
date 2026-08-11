@@ -1,4 +1,5 @@
 using Mscc.GenerativeAI;
+using System.IO;
 using LegacyModernization.Analyzer.Models;
 using LegacyModernization.TestGenerator.Models;
 using Microsoft.Extensions.Configuration;
@@ -26,11 +27,36 @@ public class GeminiTestGenerator : ITestGenerator
 
         var googleAI = new GoogleAI(apiKey);
 
-        _model = googleAI.GenerativeModel("gemini-2.5-flash");
+        _model = googleAI.GenerativeModel("gemini-3.6-flash");
     }
 
     public async Task<GeneratedTest> GenerateTestAsync(AnalysisIssue issue)
     {
+        // Attempt to include the original source file as context so Gemini can generate a test against
+        // the real class/method names instead of inventing them from the snippet alone.
+        string fileContent = string.Empty;
+        try
+        {
+            var candidates = new[]
+            {
+                issue.FilePath,
+                Path.Combine(AppContext.BaseDirectory, issue.FilePath ?? ""),
+                Path.Combine(Directory.GetCurrentDirectory(), issue.FilePath ?? ""),
+                Path.GetFullPath(issue.FilePath ?? string.Empty)
+            };
+
+            string found = candidates.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p) && File.Exists(p));
+            if (!string.IsNullOrEmpty(found))
+            {
+                fileContent = File.ReadAllText(found);
+            }
+        }
+        catch
+        {
+            // ignore read errors; we'll proceed without file context
+            fileContent = string.Empty;
+        }
+
         var prompt = $"""
 You are a senior .NET testing engineer.
 
@@ -50,6 +76,12 @@ File:
 
 Code:
 {issue.CodeSnippet}
+
+Context (if available):
+{fileContent}
+
+Use the source code above as the authoritative context. If a method or class is present in the source,
+generate the test targeting the real class/method names. Do not invent new class names.
 
 Requirements:
 
