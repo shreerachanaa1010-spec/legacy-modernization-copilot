@@ -1,2 +1,8 @@
 <Solution>
+  <Project Path="backend/src/LegacyModernization.Api/LegacyModernization.Api.csproj" />
+  <Project Path="backend/src/LegacyModernization.Analyzer/LegacyModernization.Analyzer.csproj" />
+  <Project Path="backend/src/LegacyModernization.Core/LegacyModernization.Core.csproj" />
+  <Project Path="backend/src/LegacyModernization.LLM/LegacyModernization.LLM.csproj" />
+  <Project Path="backend/src/LegacyModernization.TestGenerator/LegacyModernization.TestGenerator.csproj" />
+  <Project Path="backend/src/LegacyModernization.Verifier/LegacyModernization.Verifier.csproj" />
 </Solution>

@@ -75,3 +75,6 @@ Thumbs.db
 
 # Ignore AnalyzerHost appsettings containing secrets/api keys
 tools/AnalyzerHost/appsettings.json
+
+# Ignore API appsettings containing secrets/api keys
+backend/src/LegacyModernization.Api/appsettings.json
