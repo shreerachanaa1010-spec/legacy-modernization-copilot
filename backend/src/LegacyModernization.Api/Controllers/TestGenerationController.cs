@@ -59,7 +59,3 @@ public class TestGenerationController : ControllerBase
         return Ok(tests);
     }
 }
-<PropertyGroup>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);1591</NoWarn>
-</PropertyGroup>
