@@ -35,18 +35,15 @@ public class SuggestionsController : ControllerBase
 
         var analysis = await _analyzer.AnalyzeAsync(fullPath);
 
-        var suggestions = new List<RefactorSuggestion>();
-
-        foreach (var issue in analysis.Issues)
+        var suggestionTasks = analysis.Issues.Select(async issue =>
         {
             try
             {
-                var suggestion = await _llmService.GenerateSuggestionAsync(issue);
-                suggestions.Add(suggestion);
+                return await _llmService.GenerateSuggestionAsync(issue);
             }
             catch (Exception ex)
             {
-                suggestions.Add(new RefactorSuggestion
+                return new RefactorSuggestion
                 {
                     RuleId = issue.RuleId,
                     IssueTitle = issue.Title,
@@ -55,9 +52,10 @@ public class SuggestionsController : ControllerBase
                     RefactoredCode = "",
                     Explanation = $"LLM error: {ex.Message}",
                     IsSafe = false
-                });
+                };
             }
-        }
+        });
+        var suggestions = (await Task.WhenAll(suggestionTasks)).ToList();
 
         return Ok(suggestions);
     }

@@ -42,18 +42,16 @@ public class PipelineController : ControllerBase
         // Step 1: Analyze
         var analysis = await _analyzer.AnalyzeAsync(projectFullPath);
 
-        // Step 2: Generate suggestions
-        var suggestions = new List<RefactorSuggestion>();
-        foreach (var issue in analysis.Issues)
+        // Step 2: Generate suggestions (parallel for speed)
+        var suggestionTasks = analysis.Issues.Select(async issue =>
         {
             try
             {
-                var suggestion = await _llmService.GenerateSuggestionAsync(issue);
-                suggestions.Add(suggestion);
+                return await _llmService.GenerateSuggestionAsync(issue);
             }
             catch (Exception ex)
             {
-                suggestions.Add(new RefactorSuggestion
+                return new RefactorSuggestion
                 {
                     RuleId = issue.RuleId,
                     IssueTitle = issue.Title,
@@ -62,9 +60,10 @@ public class PipelineController : ControllerBase
                     RefactoredCode = "",
                     Explanation = $"LLM error: {ex.Message}",
                     IsSafe = false
-                });
+                };
             }
-        }
+        });
+        var suggestions = (await Task.WhenAll(suggestionTasks)).ToList();
 
         // Step 3: Verify (if test project provided)
         Verifier.Models.VerificationResult? verification = null;
