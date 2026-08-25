@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileCode2, MapPin, ThumbsUp, ThumbsDown, Undo2, Lightbulb, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, FileCode2, MapPin, ThumbsUp, ThumbsDown, Undo2, Lightbulb, AlertTriangle, FlaskConical } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { StatusBadge, SeverityBadge } from '../components/Badges';
 import { DiffViewer } from '../components/DiffViewer';
@@ -31,7 +31,7 @@ export function IssueDetailPage() {
     );
   }
 
-  const { issue, suggestion, reviewStatus } = item;
+  const { issue, suggestion, generatedTest, reviewStatus } = item;
   const gradient = ruleColors[issue.ruleId] || 'from-slate-500 to-slate-600';
   const fileName = issue.filePath.split(/[/\\]/).pop() || issue.filePath;
 
@@ -121,6 +121,20 @@ export function IssueDetailPage() {
                 originalCode={suggestion.originalCode}
                 refactoredCode={suggestion.refactoredCode}
               />
+            </div>
+          )}
+
+          {/* Generated Test */}
+          {generatedTest && generatedTest.testCode && (
+            <div className="mb-6">
+              <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+                <FlaskConical className="w-4 h-4 text-cyan-400" />
+                Generated Test — {generatedTest.testClassName}
+              </h2>
+              <CodeBlock code={generatedTest.testCode} title={`${generatedTest.testClassName}.cs`} />
+              {generatedTest.explanation && (
+                <p className="mt-2 text-xs text-slate-500">{generatedTest.explanation}</p>
+              )}
             </div>
           )}
 

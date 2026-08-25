@@ -25,5 +25,6 @@ public class PipelineResult
 {
     public Analyzer.Models.ProjectAnalysisResult Analysis { get; set; } = new();
     public List<LLM.Models.RefactorSuggestion> Suggestions { get; set; } = new();
+    public List<TestGenerator.Models.GeneratedTest> GeneratedTests { get; set; } = new();
     public Verifier.Models.VerificationResult? Verification { get; set; }
 }

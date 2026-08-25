@@ -39,9 +39,17 @@ export interface VerificationResult {
   explanation: string;
 }
 
+export interface GeneratedTest {
+  testClassName: string;
+  testCode: string;
+  targetFile: string;
+  explanation: string;
+}
+
 export interface PipelineResult {
   analysis: ProjectAnalysisResult;
   suggestions: RefactorSuggestion[];
+  generatedTests: GeneratedTest[];
   verification: VerificationResult | null;
 }
 
@@ -50,5 +58,6 @@ export type ReviewStatus = 'pending' | 'approved' | 'rejected';
 export interface IssueWithSuggestion {
   issue: AnalysisIssue;
   suggestion?: RefactorSuggestion;
+  generatedTest?: GeneratedTest;
   reviewStatus: ReviewStatus;
 }

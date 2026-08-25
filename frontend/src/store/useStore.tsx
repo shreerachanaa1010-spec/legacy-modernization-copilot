@@ -29,6 +29,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const mapped: IssueWithSuggestion[] = result.analysis.issues.map((issue, i) => ({
       issue,
       suggestion: result.suggestions[i],
+      generatedTest: result.generatedTests?.[i],
       reviewStatus: result.suggestions[i]?.isSafe ? 'approved' as ReviewStatus : 'pending' as ReviewStatus,
     }));
     setItems(mapped);
