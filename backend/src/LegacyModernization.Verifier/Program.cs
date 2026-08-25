@@ -2,7 +2,7 @@ using LegacyModernization.Verifier.Services;
 
 Console.WriteLine("Verification starting...");
 
-var verifier = new VerificationService();
+var verifier = new VerificationService(new TestRunner());
 
 var result = await verifier.VerifyAsync(
     "samples/LegacySampleProject.Tests/LegacySampleProject.Tests.csproj"

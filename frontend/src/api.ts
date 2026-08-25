@@ -1,4 +1,4 @@
-import type { ProjectAnalysisResult, RefactorSuggestion, PipelineResult, VerificationResult } from './types';
+import type { ProjectAnalysisResult, RefactorSuggestion, PipelineResult, VerificationResult, GeneratedTest } from './types';
 
 const BASE = '/api';
 
@@ -25,6 +25,10 @@ export function getSuggestions(projectPath: string) {
 
 export function runVerification(testProjectPath: string) {
   return request<VerificationResult>('/verification', { testProjectPath });
+}
+
+export function generateTests(projectPath: string) {
+  return request<GeneratedTest[]>('/testgeneration', { projectPath });
 }
 
 export function runPipeline(projectPath: string, testProjectPath?: string) {
