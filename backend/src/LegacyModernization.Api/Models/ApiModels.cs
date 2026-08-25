@@ -1,3 +1,5 @@
+using LegacyModernization.Core.Models;
+
 namespace LegacyModernization.Api.Models;
 
 public class AnalyzeRequest
@@ -24,7 +26,7 @@ public class PipelineRequest
 public class PipelineResult
 {
     public Analyzer.Models.ProjectAnalysisResult Analysis { get; set; } = new();
-    public List<LLM.Models.RefactorSuggestion> Suggestions { get; set; } = new();
-    public List<TestGenerator.Models.GeneratedTest> GeneratedTests { get; set; } = new();
-    public Verifier.Models.VerificationResult? Verification { get; set; }
+    public List<RefactorSuggestion> Suggestions { get; set; } = new();
+    public List<GeneratedTest> GeneratedTests { get; set; } = new();
+    public VerificationResult? Verification { get; set; }
 }

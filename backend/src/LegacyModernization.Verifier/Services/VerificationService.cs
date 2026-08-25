@@ -1,4 +1,4 @@
-using LegacyModernization.Verifier.Models;
+using LegacyModernization.Core.Models;
 
 namespace LegacyModernization.Verifier.Services;
 

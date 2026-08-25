@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LegacyModernization.Analyzer\LegacyModernization.Analyzer.csproj" />
+    <ProjectReference Include="..\LegacyModernization.Core\LegacyModernization.Core.csproj" />
   </ItemGroup>
 
 </Project>

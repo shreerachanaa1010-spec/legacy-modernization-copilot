@@ -1,8 +1,7 @@
 using LegacyModernization.Analyzer.Services;
 using LegacyModernization.Api.Models;
-using LegacyModernization.LLM.Models;
+using LegacyModernization.Core.Models;
 using LegacyModernization.LLM.Services;
-using LegacyModernization.TestGenerator.Models;
 using LegacyModernization.TestGenerator.Services;
 using LegacyModernization.Verifier.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -92,7 +91,7 @@ public class PipelineController : ControllerBase
         }
 
         // Step 4: Verify (if test project provided)
-        Verifier.Models.VerificationResult? verification = null;
+        VerificationResult? verification = null;
         if (!string.IsNullOrWhiteSpace(request.TestProjectPath))
         {
             var testFullPath = Path.GetFullPath(request.TestProjectPath);

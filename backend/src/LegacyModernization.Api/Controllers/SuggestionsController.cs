@@ -1,6 +1,6 @@
 using LegacyModernization.Analyzer.Services;
 using LegacyModernization.Api.Models;
-using LegacyModernization.LLM.Models;
+using LegacyModernization.Core.Models;
 using LegacyModernization.LLM.Services;
 using Microsoft.AspNetCore.Mvc;
 

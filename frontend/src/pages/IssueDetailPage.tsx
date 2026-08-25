@@ -10,6 +10,8 @@ const ruleColors: Record<string, string> = {
   LMC002: 'from-amber-500 to-yellow-500',
   LMC003: 'from-blue-500 to-cyan-500',
   LMC004: 'from-purple-500 to-pink-500',
+  LMC005: 'from-rose-500 to-red-500',
+  LMC006: 'from-teal-500 to-emerald-500',
 };
 
 export function IssueDetailPage() {

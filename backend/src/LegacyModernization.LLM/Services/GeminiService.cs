@@ -1,5 +1,4 @@
-using LegacyModernization.Analyzer.Models;
-using LegacyModernization.LLM.Models;
+using LegacyModernization.Core.Models;
 using Microsoft.Extensions.Configuration;
 using Mscc.GenerativeAI;
 
