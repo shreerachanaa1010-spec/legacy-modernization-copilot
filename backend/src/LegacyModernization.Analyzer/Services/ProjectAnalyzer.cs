@@ -1,4 +1,5 @@
 using LegacyModernization.Analyzer.Models;
+using LegacyModernization.Core.Models;
 using LegacyModernization.Analyzer.Rules;
 using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;

@@ -1,3 +1,5 @@
+using LegacyModernization.Core.Models;
+
 namespace LegacyModernization.Analyzer.Models;
 
 /// <summary>

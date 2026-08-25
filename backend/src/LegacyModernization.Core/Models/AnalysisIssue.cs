@@ -1,4 +1,4 @@
-namespace LegacyModernization.Analyzer.Models;
+namespace LegacyModernization.Core.Models;
 
 public class AnalysisIssue
 {

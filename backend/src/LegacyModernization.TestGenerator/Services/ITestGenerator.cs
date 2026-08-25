@@ -1,5 +1,4 @@
-using LegacyModernization.Analyzer.Models;
-using LegacyModernization.TestGenerator.Models;
+using LegacyModernization.Core.Models;
 
 namespace LegacyModernization.TestGenerator.Services;
 

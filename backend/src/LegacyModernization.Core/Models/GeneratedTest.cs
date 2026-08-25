@@ -1,4 +1,4 @@
-namespace LegacyModernization.TestGenerator.Models;
+namespace LegacyModernization.Core.Models;
 
 public class GeneratedTest
 {

@@ -1,5 +1,5 @@
 using Microsoft.CodeAnalysis;
-using LegacyModernization.Analyzer.Models;
+using LegacyModernization.Core.Models;
 
 namespace LegacyModernization.Analyzer.Rules;
 

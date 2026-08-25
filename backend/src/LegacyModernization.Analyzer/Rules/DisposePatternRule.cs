@@ -1,4 +1,4 @@
-using LegacyModernization.Analyzer.Models;
+using LegacyModernization.Core.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Generic;

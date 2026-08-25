@@ -1,4 +1,4 @@
-using LegacyModernization.Analyzer.Models;
+using LegacyModernization.Core.Models;
 using Microsoft.CodeAnalysis;
 
 namespace LegacyModernization.Analyzer.Rules;
@@ -17,7 +17,9 @@ public class PatternRuleEngine
             new SyncOverAsyncRule(),
             new WebClientRule(),
             new ConfigureAwaitRule(),
-            new DisposePatternRule()
+            new DisposePatternRule(),
+            new HttpClientInstantiationRule(),
+            new DateTimeNowRule()
         };
     }
 

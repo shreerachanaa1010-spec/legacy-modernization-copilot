@@ -16,4 +16,8 @@
     <PackageReference Include="Microsoft.Build.Framework" Version="17.11.48" PrivateAssets="all" ExcludeAssets="runtime" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\LegacyModernization.Core\LegacyModernization.Core.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -1,4 +1,4 @@
-namespace LegacyModernization.Verifier.Models;
+namespace LegacyModernization.Core.Models;
 
 public class VerificationResult
 {

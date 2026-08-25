@@ -1,6 +1,6 @@
 using LegacyModernization.Analyzer.Services;
 using LegacyModernization.Api.Models;
-using LegacyModernization.TestGenerator.Models;
+using LegacyModernization.Core.Models;
 using LegacyModernization.TestGenerator.Services;
 using Microsoft.AspNetCore.Mvc;
 
