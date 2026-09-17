@@ -1,7 +1,6 @@
 using Mscc.GenerativeAI;
 using System.IO;
-using LegacyModernization.Analyzer.Models;
-using LegacyModernization.TestGenerator.Models;
+using LegacyModernization.Core.Models;
 using Microsoft.Extensions.Configuration;
 
 namespace LegacyModernization.TestGenerator.Services;

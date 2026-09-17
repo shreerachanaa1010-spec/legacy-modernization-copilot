@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using LegacyModernization.Analyzer.Models;
+using LegacyModernization.Core.Models;
 using LegacyModernization.TestGenerator.Services;
 
 Console.WriteLine("Test Generator starting...");

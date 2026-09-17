@@ -9,4 +9,8 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\LegacyModernization.Core\LegacyModernization.Core.csproj" />
+  </ItemGroup>
+
 </Project>

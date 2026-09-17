@@ -1,3 +1,4 @@
+using LegacyModernization.Core.Models;
 using LegacyModernization.Analyzer.Models;
 using LegacyModernization.LLM.Models;
 using LegacyModernization.Rag.Models;

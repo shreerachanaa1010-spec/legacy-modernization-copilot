@@ -1,4 +1,4 @@
-namespace LegacyModernization.LLM.Models;
+namespace LegacyModernization.Core.Models;
 
 public class RefactorSuggestion
 {

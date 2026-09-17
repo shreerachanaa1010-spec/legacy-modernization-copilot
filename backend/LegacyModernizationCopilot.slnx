@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/LegacyModernization.Analyzer.Tests/LegacyModernization.Analyzer.Tests.csproj" />
     <Project Path="src/LegacyModernization.Analyzer/LegacyModernization.Analyzer.csproj" />
     <Project Path="src/LegacyModernization.Api/LegacyModernization.Api.csproj" />
     <Project Path="src/LegacyModernization.Core/LegacyModernization.Core.csproj" />
