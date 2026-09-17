@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Collections.Generic;
 using LegacyModernization.Analyzer.Services;
 using LegacyModernization.LLM.Services;
+using LegacyModernization.Rag.Services;
 
 Console.WriteLine("Analyzer host starting...");
 
@@ -52,12 +53,16 @@ if (result.Issues.Any())
     Console.WriteLine("Generating AI refactoring suggestions...");
 
     var llm = new GeminiService();
+    var retriever = new PythonRepositoryRetriever();
+    var projectRoot = Path.GetDirectoryName(Path.GetFullPath(projectPath))
+                      ?? Directory.GetCurrentDirectory();
 
     foreach (var issue in result.Issues)
     {
         try
         {
-            var suggestion = await llm.GenerateSuggestionAsync(issue);
+            var context = await retriever.RetrieveAsync(issue, projectRoot);
+            var suggestion = await llm.GenerateSuggestionAsync(issue, context);
             suggestions.Add(suggestion);
             Console.WriteLine($"Generated suggestion for {issue.RuleId} at {issue.FilePath}:{issue.LineNumber}");
         }

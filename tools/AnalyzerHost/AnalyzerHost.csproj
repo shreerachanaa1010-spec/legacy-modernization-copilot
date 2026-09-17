@@ -10,6 +10,7 @@
   <ItemGroup>
 	<ProjectReference Include="..\..\backend\src\LegacyModernization.Analyzer\LegacyModernization.Analyzer.csproj" />
 	<ProjectReference Include="..\..\backend\src\LegacyModernization.LLM\LegacyModernization.LLM.csproj" />
+	<ProjectReference Include="..\..\backend\src\LegacyModernization.Rag\LegacyModernization.Rag.csproj" />
   </ItemGroup>
   <ItemGroup>
 	<!-- Ensure MSBuild runtime assets are excluded to avoid MSBL001 when loading MSBuild via Microsoft.Build.Locator -->

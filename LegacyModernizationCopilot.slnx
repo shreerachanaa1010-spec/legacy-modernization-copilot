@@ -1,2 +1,10 @@
 <Solution>
+  <Folder Name="/backend/" />
+  <Folder Name="/backend/src/">
+    <Project Path="backend/src/LegacyModernization.Analyzer/LegacyModernization.Analyzer.csproj" />
+    <Project Path="backend/src/LegacyModernization.Rag/LegacyModernization.Rag.csproj" />
+  </Folder>
+  <Folder Name="/backend/tests/">
+    <Project Path="backend/tests/LegacyModernization.Rag.Tests/LegacyModernization.Rag.Tests.csproj" />
+  </Folder>
 </Solution>

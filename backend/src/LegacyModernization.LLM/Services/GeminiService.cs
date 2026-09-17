@@ -1,5 +1,6 @@
 using LegacyModernization.Analyzer.Models;
 using LegacyModernization.LLM.Models;
+using LegacyModernization.Rag.Models;
 using Microsoft.Extensions.Configuration;
 using Mscc.GenerativeAI;
 
@@ -22,9 +23,16 @@ public class GeminiService : ILlmService
         _googleAI = new GoogleAI(apiKey);
     }
 
-    public async Task<RefactorSuggestion> GenerateSuggestionAsync(AnalysisIssue issue)
+    public async Task<RefactorSuggestion> GenerateSuggestionAsync(
+        AnalysisIssue issue,
+        RetrievedContext context)
     {
         var model = _googleAI.GenerativeModel("gemini-3.6-flash");
+
+        var retrievedContext = string.Join(
+            Environment.NewLine + Environment.NewLine,
+            context.Documents.Select(document =>
+                $"Source: {document.SourceType} ({document.FilePath}){Environment.NewLine}{document.Content}"));
 
         var prompt = $"""
 You are a senior .NET modernization expert.
@@ -40,6 +48,9 @@ Description:
 
 Code:
 {issue.CodeSnippet}
+
+Repository context retrieved for this issue:
+{retrievedContext}
 
 Explain:
 1. Why this is a problem.
