@@ -5,11 +5,11 @@ namespace LegacyModernization.Rag.Services;
 
 public sealed class HybridRepositoryRetriever : IRepositoryRetriever
 {
-    private readonly FileSystemRepositoryRetriever _deterministic;
+    private readonly SymbolAwareRepositoryRetriever _deterministic;
     private readonly LongLivedPythonRepositoryRetriever _enrichment;
 
     public HybridRepositoryRetriever(
-        FileSystemRepositoryRetriever deterministic,
+        SymbolAwareRepositoryRetriever deterministic,
         LongLivedPythonRepositoryRetriever enrichment)
     {
         _deterministic = deterministic;

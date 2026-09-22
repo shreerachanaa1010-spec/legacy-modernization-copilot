@@ -7,26 +7,30 @@ namespace LegacyModernization.TestGenerator.Services;
 
 public class GeminiTestGenerator : ITestGenerator
 {
-    private readonly GenerativeModel _model;
+    private readonly GenerativeModel? _model;
 
     public GeminiTestGenerator(IConfiguration? configuration = null)
     {
         var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY")
                      ?? configuration?["Gemini:ApiKey"];
 
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            throw new InvalidOperationException(
-                "Gemini API key was not found in GEMINI_API_KEY.");
-        }
-
-        var googleAI = new GoogleAI(apiKey);
-
-        _model = googleAI.GenerativeModel("gemini-3.6-flash");
+        _model = string.IsNullOrWhiteSpace(apiKey)
+            ? null
+            : new GoogleAI(apiKey).GenerativeModel("gemini-3.6-flash");
     }
 
     public async Task<GeneratedTest> GenerateTestAsync(AnalysisIssue issue)
     {
+        if (_model is null)
+        {
+            return new GeneratedTest
+            {
+                TestClassName = $"{issue.RuleId}GeneratedTests",
+                TargetFile = issue.FilePath,
+                Explanation = "No external model is configured; test generation is pending manual or local-model configuration."
+            };
+        }
+
         // Attempt to include the original source file as context so Gemini can generate a test against
         // the real class/method names instead of inventing them from the snippet alone.
         string fileContent = string.Empty;

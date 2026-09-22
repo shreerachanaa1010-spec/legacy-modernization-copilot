@@ -12,7 +12,7 @@ services:
       - ASPNETCORE_URLS=http://+:8080
       - RAG_STORE_MODE=sqlite
     env_file:
-      - ./backend/src/LegacyModernization.Api/.env
+      - ./.env
     volumes:
       - ./samples:/app/samples
       - ./reports:/app/reports

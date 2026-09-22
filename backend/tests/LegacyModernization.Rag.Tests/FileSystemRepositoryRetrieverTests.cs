@@ -95,6 +95,59 @@ public sealed class FileSystemRepositoryRetrieverTests
         Directory.Delete(root, recursive: true);
     }
 
+    [Fact]
+    public async Task SymbolAwareRetriever_PopulatesContainingMethodAndLineRange()
+    {
+        var root = CreateTemporaryRepository();
+        var sourcePath = Path.Combine(root, "CustomerService.cs");
+        await File.WriteAllTextAsync(sourcePath, "namespace Demo;\nclass CustomerService\n{\n    void Process()\n    {\n    }\n}");
+
+        var context = await new SymbolAwareRepositoryRetriever(new FileSystemRepositoryRetriever())
+            .RetrieveAsync(new AnalysisIssue { FilePath = sourcePath, LineNumber = 5 }, root);
+
+        var primary = Assert.Single(context.Documents, document => document.SourceType == "primary-source");
+        Assert.Equal("CustomerService.Process", primary.Symbol);
+        Assert.Equal(4, primary.LineStart);
+        Assert.Equal(6, primary.LineEnd);
+
+        Directory.Delete(root, recursive: true);
+    }
+
+    [Fact]
+    public async Task SqliteVectorStore_PersistsAcceptedRefactoring()
+    {
+        var root = CreateTemporaryRepository();
+        var store = new SqliteVectorStore(Path.Combine(root, "rag.db"));
+
+        await store.SaveAsync("finding-1", "LMC001", "original", "refactored", "BOTH_PASS");
+
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
+            {
+                DataSource = Path.Combine(root, "rag.db"),
+                Pooling = false
+            }.ToString());
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT verification_status FROM accepted_refactorings WHERE finding_fingerprint = 'finding-1'";
+        Assert.Equal("BOTH_PASS", (string?)await command.ExecuteScalarAsync());
+        await connection.CloseAsync();
+
+        Directory.Delete(root, recursive: true);
+    }
+
+    [Fact]
+    public async Task SqliteRepositoryIndexer_IndexesCSharpFilesLocally()
+    {
+        var root = CreateTemporaryRepository();
+        await File.WriteAllTextAsync(Path.Combine(root, "Service.cs"), "class Service { }");
+        var store = new SqliteVectorStore(Path.Combine(root, "rag.db"));
+        var result = await new SqliteRepositoryIndexer(store).IndexAsync(root, "repo-1");
+
+        Assert.Equal(1, result.IndexedFiles);
+        Directory.Delete(root, recursive: true);
+    }
+
     private static string CreateTemporaryRepository()
     {
         var root = Path.Combine(Path.GetTempPath(), $"rag-tests-{Guid.NewGuid():N}");

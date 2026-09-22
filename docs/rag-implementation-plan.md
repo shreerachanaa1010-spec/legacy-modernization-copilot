@@ -15,6 +15,17 @@ The governing rule is: deterministic retrieval is the source of truth; vector se
 
 These defaults are configuration and architecture contracts, not silent fallbacks. The active store mode, embedding provider, model, and fallback state must be exposed in diagnostics or health information.
 
+### Local-only implementation status
+
+The implemented path intentionally requires no hosted PostgreSQL, cloud deployment, hosted storage, hosted networking, or paid provider:
+
+- SQLite and FTS5 are the default persistence and lexical retrieval layer.
+- Roslyn provides deterministic symbol enrichment.
+- LanceDB is an optional open-source local adapter and is never required for startup.
+- Gemini is optional; without `GEMINI_API_KEY`, generation returns an explicit review-only result and never marks code safe.
+- The verifier remains local and authoritative.
+- The removed per-issue Python adapter has been replaced by the long-lived worker path.
+
 ## SQLite Data Model
 
 SQLite is the default persistent store. The schema below is the canonical local model for repository identity, auditable chunks, lexical retrieval, and accepted refactorings:

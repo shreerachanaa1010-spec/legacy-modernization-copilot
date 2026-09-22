@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from pgvector_rag import PgVectorRagStore
+from lancedb_rag import LanceDbRagStore
 from embedding_provider import EmbeddingProvider, configured_embedding_provider
 from retrieval_contract import SearchResult
 
@@ -200,7 +201,7 @@ class SQLiteRagStore:
                 """
                 SELECT chunks.source_path, chunks.content, chunks.source_type,
                        chunks.symbol_name, chunks.line_start, chunks.line_end,
-                       chunks.content_hash, bm25(chunks_fts) AS rank
+                       chunks.content_hash, chunks.embedding, bm25(chunks_fts) AS rank
                 FROM chunks_fts
                 JOIN chunks ON chunks.rowid = chunks_fts.rowid
                 WHERE chunks_fts MATCH ? AND chunks.repository_id = ?
@@ -220,7 +221,7 @@ class SQLiteRagStore:
             rows = self._connection.execute(
                 f"""
                 SELECT source_path, content, source_type, symbol_name,
-                       line_start, line_end, content_hash, 0.0 AS rank
+                       line_start, line_end, content_hash, NULL AS embedding, 0.0 AS rank
                 FROM chunks
                 WHERE repository_id = ? AND ({like_clauses})
                 LIMIT ?
@@ -228,8 +229,17 @@ class SQLiteRagStore:
                 [self.repository_id, *like_parameters, limit],
             ).fetchall()
 
-        return [
-            SearchResult(
+        query_embedding = self.embedding_provider.embed(query) if self.embedding_provider else None
+        lexical_scores = [max(0.0, -float(row["rank"])) for row in rows]
+        lexical_max = max(lexical_scores, default=0.0) or 1.0
+        results = []
+        for row, lexical_score in zip(rows, lexical_scores):
+            vector_score = 0.0
+            if query_embedding and row["embedding"]:
+                stored = json.loads(bytes(row["embedding"]).decode("utf-8"))
+                vector_score = self._cosine_similarity(query_embedding, stored)
+            score = 0.7 * (lexical_score / lexical_max) + 0.3 * max(0.0, vector_score)
+            results.append(SearchResult(
                 source_path=row["source_path"],
                 content=row["content"],
                 metadata={
@@ -238,12 +248,13 @@ class SQLiteRagStore:
                     "line_start": row["line_start"],
                     "line_end": row["line_end"],
                     "content_hash": row["content_hash"],
-                    "retrieval_method": "sqlite-fts5",
+                    "retrieval_method": "sqlite-fts5+vector" if query_embedding else "sqlite-fts5",
+                    "lexical_score": lexical_score,
+                    "vector_score": vector_score,
                 },
-                score=float(-row["rank"]),
-            )
-            for row in rows
-        ]
+                score=score,
+            ))
+        return sorted(results, key=lambda result: result.score, reverse=True)
 
     def prune_missing(self, source_paths: set[str]) -> None:
         with self._connection:
@@ -257,6 +268,15 @@ class SQLiteRagStore:
                         "DELETE FROM chunks WHERE repository_id = ? AND source_path = ?",
                         (self.repository_id, row["source_path"]),
                     )
+
+    @staticmethod
+    def _cosine_similarity(left: list[float], right: list[float]) -> float:
+        if len(left) != len(right):
+            raise ValueError(f"Embedding dimension mismatch: {len(left)} != {len(right)}")
+        dot = sum(a * b for a, b in zip(left, right))
+        left_norm = sum(value * value for value in left) ** 0.5
+        right_norm = sum(value * value for value in right) ** 0.5
+        return dot / (left_norm * right_norm) if left_norm and right_norm else 0.0
 
 class GeminiGenerator:
     def __init__(self, api_key: str | None = None, model: str = "gemini-2.0-flash") -> None:
@@ -314,6 +334,8 @@ class AgenticRagPipeline:
                         "pgvector is required but unavailable; no fallback was applied. "
                         "Set RAG_STORE_MODE=sqlite for the local default."
                     )
+            elif store_mode in {"lancedb", "required-lancedb", "required_lancedb"}:
+                preferred_store = LanceDbRagStore(repo_root=self.repo_root)
             elif store_mode == "allow-fallback":
                 try:
                     preferred_store = PgVectorRagStore()

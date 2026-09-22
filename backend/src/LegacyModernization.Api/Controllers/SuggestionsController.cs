@@ -60,7 +60,8 @@ public class SuggestionsController : ControllerBase
                     Reason = issue.Description,
                     OriginalCode = issue.CodeSnippet,
                     RefactoredCode = "",
-                    Explanation = $"LLM error: {ex.Message}",
+                    Explanation = $"Suggestion generation failed safely: {ex.GetBaseException().Message}",
+                    GenerationStatus = "generation-error",
                     IsSafe = false
                 };
             }

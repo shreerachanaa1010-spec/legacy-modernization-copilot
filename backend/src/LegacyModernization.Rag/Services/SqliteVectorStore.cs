@@ -175,6 +175,33 @@ public sealed class SqliteVectorStore : IVectorStore, IAcceptedRefactoringStore
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task PruneRepositoryAsync(
+        string repositoryId,
+        IReadOnlySet<string> activeSourcePaths,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = OpenConnection();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT DISTINCT source_path FROM chunks WHERE repository_id = $repository";
+        command.Parameters.AddWithValue("$repository", repositoryId);
+        var paths = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            paths.Add(reader.GetString(0));
+        }
+
+        await reader.DisposeAsync();
+        foreach (var path in paths.Where(path => !activeSourcePaths.Contains(path)))
+        {
+            await using var delete = connection.CreateCommand();
+            delete.CommandText = "DELETE FROM chunks WHERE repository_id = $repository AND source_path = $path";
+            delete.Parameters.AddWithValue("$repository", repositoryId);
+            delete.Parameters.AddWithValue("$path", path);
+            await delete.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
+
     private SqliteConnection OpenConnection()
     {
         var connection = new SqliteConnection(_connectionString);

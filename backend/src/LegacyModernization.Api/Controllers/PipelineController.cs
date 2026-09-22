@@ -1,5 +1,6 @@
 using LegacyModernization.Analyzer.Services;
 using LegacyModernization.Api.Models;
+using LegacyModernization.Api.Services;
 using LegacyModernization.Core.Models;
 using LegacyModernization.LLM.Services;
 using LegacyModernization.Rag.Models;
@@ -7,6 +8,8 @@ using LegacyModernization.Rag.Services;
 using LegacyModernization.TestGenerator.Services;
 using LegacyModernization.Verifier.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace LegacyModernization.Api.Controllers;
 
@@ -18,6 +21,7 @@ public class PipelineController : ControllerBase
     private readonly ILlmService _llmService;
     private readonly ITestGenerator _testGenerator;
     private readonly IRepositoryRetriever _retriever;
+    private readonly IAcceptedRefactoringStore _acceptedRefactorings;
     private readonly VerificationService _verifier;
 
     public PipelineController(
@@ -25,12 +29,14 @@ public class PipelineController : ControllerBase
         ILlmService llmService,
         ITestGenerator testGenerator,
         IRepositoryRetriever retriever,
+        IAcceptedRefactoringStore acceptedRefactorings,
         VerificationService verifier)
     {
         _analyzer = analyzer;
         _llmService = llmService;
         _testGenerator = testGenerator;
         _retriever = retriever;
+        _acceptedRefactorings = acceptedRefactorings;
         _verifier = verifier;
     }
 
@@ -43,10 +49,10 @@ public class PipelineController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.ProjectPath))
             return BadRequest("ProjectPath is required.");
 
-        var projectFullPath = Path.GetFullPath(request.ProjectPath);
+        var projectFullPath = ProjectPathResolver.Resolve(request.ProjectPath);
 
-        if (!System.IO.File.Exists(projectFullPath))
-            return NotFound($"Project file not found: {projectFullPath}");
+        if (projectFullPath is null)
+            return NotFound($"No unique .csproj file was found for project path: {request.ProjectPath}");
 
         // Step 1: Analyze
         var analysis = await _analyzer.AnalyzeAsync(projectFullPath);
@@ -70,7 +76,8 @@ public class PipelineController : ControllerBase
                     Reason = issue.Description,
                     OriginalCode = issue.CodeSnippet,
                     RefactoredCode = "",
-                    Explanation = $"LLM error: {ex.Message}",
+                    Explanation = $"Suggestion generation failed safely: {ex.GetBaseException().Message}",
+                    GenerationStatus = "generation-error",
                     IsSafe = false
                 };
             }
@@ -143,6 +150,21 @@ public class PipelineController : ControllerBase
                 {
                     suggestion.IsSafe = isSafe;
                 }
+
+                if (isSafe)
+                {
+                    for (var index = 0; index < suggestions.Count && index < analysis.Issues.Count; index++)
+                    {
+                        var suggestion = suggestions[index];
+                        var issue = analysis.Issues[index];
+                        await _acceptedRefactorings.SaveAsync(
+                            CreateFindingFingerprint(issue),
+                            issue.RuleId,
+                            Hash(issue.CodeSnippet),
+                            suggestion.RefactoredCode,
+                            verification.Status);
+                    }
+                }
             }
         }
 
@@ -157,4 +179,10 @@ public class PipelineController : ControllerBase
             Verification = verification
         });
     }
+
+    private static string CreateFindingFingerprint(AnalysisIssue issue) =>
+        Hash($"{issue.RuleId}:{issue.FilePath}:{issue.LineNumber}:{issue.CodeSnippet}");
+
+    private static string Hash(string value) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value ?? string.Empty))).ToLowerInvariant();
 }

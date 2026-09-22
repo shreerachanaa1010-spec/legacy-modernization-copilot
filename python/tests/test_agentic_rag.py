@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agentic_rag import AgenticRagPipeline, LocalVectorStore
+from embedding_provider import FakeEmbeddingProvider
 
 
 def test_default_pipeline_uses_sqlite_store(monkeypatch: object) -> None:
@@ -102,3 +103,10 @@ def test_pgvector_store_falls_back_to_local_when_database_is_unavailable() -> No
 
     assert query_result
     assert query_result[0].source_path == "src/PaymentService.cs"
+
+
+def test_fake_embedding_provider_is_deterministic_for_injected_tests() -> None:
+    provider = FakeEmbeddingProvider()
+
+    assert provider.embed("same input") == provider.embed("same input")
+    assert len(provider.embed("same input")) == provider.dimension

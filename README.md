@@ -1,589 +1,188 @@
 # Legacy Modernization Copilot
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-![C#](https://img.shields.io/badge/C%23-52.3%25-239120?logo=c-sharp)
-![TypeScript](https://img.shields.io/badge/TypeScript-47.2%25-3178C6?logo=typescript)
+Local-first tooling for analyzing legacy .NET projects, retrieving repository evidence, generating modernization suggestions, and verifying behavior with tests.
 
-AI-powered legacy .NET modernization assistant that detects outdated code patterns, suggests verified refactors, and automatically validates behavior using generated tests.
+## Readiness
 
-## 🎯 Overview
+The backend and local RAG path are implemented and validated. The project does not require PostgreSQL, hosted infrastructure, or paid model services to start.
 
-Legacy Modernization Copilot is an intelligent assistant designed to help developers modernize legacy .NET codebases. It leverages AI to identify outdated patterns, recommend best-practice refactorings, and ensure code quality through automated test generation and validation.
+Current validation:
 
-### ✨ Key Features
+- Backend RAG tests: 6 passed.
+- Python RAG tests: 6 passed.
+- Backend API build: passed.
+- Local retrieval evaluation smoke test: Recall@10 1.0, MRR 1.0.
+- Docker Compose validation: not run in the current environment because Docker is not installed.
+- Frontend build: requires `npm install` first; it was not available in the current environment because `node_modules` is absent.
 
-- 🔍 **Outdated Pattern Detection** - Automatically identifies legacy .NET code patterns and anti-patterns
-- 💡 **Intelligent Refactoring Suggestions** - AI-powered recommendations for modernizing code
-- ✅ **Verified Refactors** - Suggests refactorings with confidence scoring and best practices
-- 🧪 **Automated Test Generation** - Generates comprehensive tests to validate refactored code
-- 🔄 **Behavior Validation** - Ensures refactored code maintains original functionality
-- 🚀 **.NET Best Practices** - Recommends modern patterns aligned with current .NET standards
+Gemini generation is optional. Without `GEMINI_API_KEY`, the application returns review-only results and never marks a suggestion safe.
 
-## 🏗️ Tech Stack
-
-- **Backend**: C# (52.3%)
-  - .NET Framework/Core
-  - Code analysis and pattern recognition
-  - Test generation engine
-  
-- **Frontend**: TypeScript (47.2%)
-  - React with TypeScript + Vite
-  - Modern UI for viewing suggestions
-  - Integration with development workflows
-  - Real-time code analysis feedback
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- .NET 6.0 or higher
-- Node.js 16 or higher
-- npm or yarn
-- Git
-
-### Installation
-
-1. **Clone the repository:**
-```bash
-git clone https://github.com/shreerachanaa1010-spec/legacy-modernization-copilot.git
-cd legacy-modernization-copilot
-```
-
-2. **Install dependencies:**
-
-```bash
-# Install .NET dependencies
-dotnet restore
-
-# Install frontend dependencies
-cd frontend
-npm install
-cd ..
-```
-
-3. **Build the project:**
-
-```bash
-# Build backend
-dotnet build
-
-# Build frontend
-cd frontend
-npm run build
-cd ..
-```
-
-### Running the Application
-
-**Development Mode:**
-
-```bash
-# Terminal 1: Start the backend (from root)
-dotnet run
-
-# Terminal 2: Start the frontend (from frontend directory)
-cd frontend
-npm run dev
-```
-
-The application will be available at `http://localhost:5173` (frontend) and `http://localhost:5000` (API).
-
-## 📖 Usage
-
-### Basic Workflow
-
-1. **Scan Legacy Code** - Point the tool to your legacy .NET codebase
-2. **Review Suggestions** - Examine AI-generated refactoring suggestions
-3. **Review Confidence Scores** - Evaluate risk and benefit of each suggestion
-4. **Generate Tests** - Automatically create tests for proposed changes
-5. **Validate Changes** - Run tests to ensure behavior is preserved
-6. **Apply Refactors** - Implement verified refactorings with confidence
-
-### Example Use Case
-
-**Legacy Code:**
-```csharp
-public class OldService
-{
-    public void ProcessData(string[] items)
-    {
-        for (int i = 0; i < items.Length; i++)
-        {
-            if (items[i] != null && items[i].Length > 0)
-            {
-                // Process item
-                Console.WriteLine(items[i]);
-            }
-        }
-    }
-}
-```
-
-**Suggested Modernization:**
-```csharp
-public class ModernService
-{
-    public void ProcessData(string[] items)
-    {
-        foreach (var item in items.Where(i => !string.IsNullOrEmpty(i)))
-        {
-            Console.WriteLine(item);
-        }
-    }
-}
-```
-
-**Generated Test:**
-```csharp
-[TestClass]
-public class ModernServiceTests
-{
-    [TestMethod]
-    public void ProcessData_WithValidItems_PrintsAll()
-    {
-        var service = new ModernService();
-        var items = new[] { "item1", "item2", "item3" };
-        
-        service.ProcessData(items);
-        
-        // Assert output contains all items
-    }
-    
-    [TestMethod]
-    public void ProcessData_WithNullOrEmpty_SkipsInvalidItems()
-    {
-        var service = new ModernService();
-        var items = new[] { "item1", null, "", "item4" };
-        
-        service.ProcessData(items);
-        
-        // Assert only valid items are processed
-    }
-}
-```
-
-## 🔧 Features in Detail
-
-### Pattern Detection
-
-Detects common legacy patterns including:
-- Direct array manipulation instead of LINQ
-- Missing null coalescing operators (`?.`)
-- Obsolete exception handling patterns
-- Inefficient string operations
-- Missing async/await patterns
-- Deprecated API usage
-- Old naming conventions
-- Missing dependency injection patterns
-
-### Test Generation
-
-Automatically generates:
-- Unit tests for refactored methods
-- Integration tests for module changes
-- Edge case test scenarios
-- Regression test suites
-- Assertion helpers for common operations
-
-### Refactoring Confidence Scoring
-
-Each suggestion includes:
-- **Confidence Score** (0-100%) - Likelihood the refactoring will work correctly
-- **Risk Assessment** - Potential impacts and breaking changes
-- **Estimated Effort** - Time required for implementation
-- **Backward Compatibility Notes** - Version compatibility information
-- **Performance Impact Analysis** - Expected performance changes
-
-## 📁 Project Structure
-
-```
-legacy-modernization-copilot/
-├── backend/                   # C# backend services
-│   ├── Analysis/              # Code pattern analysis engine
-│   ├── Refactoring/           # Refactoring suggestion engine
-│   ├── Testing/               # Test generation service
-│   ├── Models/                # Data models
-│   └── Services/              # Business logic
-├── frontend/                  # TypeScript/React UI
-│   ├── src/
-│   │   ├── components/        # React components
-│   │   ├── pages/             # Application pages
-│   │   ├── services/          # API client services
-│   │   ├── hooks/             # React custom hooks
-│   │   └── styles/            # Styling
-│   ├── public/                # Static assets
-│   ├── vite.config.ts         # Vite configuration
-│   └── README.md              # Frontend setup guide
-├── tests/                     # Test suites
-│   ├── Unit/                  # Unit tests
-│   └── Integration/           # Integration tests
-├── docs/                      # Documentation
-├── README.md                  # This file
-├── LICENSE                    # MIT License
-└── .gitignore
-```
-
-## 📚 Documentation
-
-For detailed information, see:
-- [User Guide](docs/USER_GUIDE.md) - How to use the application
-- [API Reference](docs/API.md) - Backend API documentation
-- [Contributing Guide](CONTRIBUTING.md) - How to contribute
-- [Architecture](docs/ARCHITECTURE.md) - System architecture
-- [FAQ](docs/FAQ.md) - Frequently asked questions
-- [Frontend Setup](frontend/README.md) - Frontend development guide
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on:
-
-- Code style and standards
-- Commit message conventions
-- Pull request process
-- Testing requirements
-- Documentation standards
-
-### Development Setup
-
-1. Fork the repository
-2. Create a feature branch:
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-3. Commit your changes:
-   ```bash
-   git commit -m 'Add amazing feature'
-   ```
-4. Push to the branch:
-   ```bash
-   git push origin feature/amazing-feature
-   ```
-5. Open a Pull Request
-
-## ✅ Testing
-
-Run the test suite:
-
-```bash
-# Run all .NET tests
-dotnet test
-
-# Run .NET tests with coverage
-dotnet test /p:CollectCoverage=true
-
-# Run frontend tests
-cd frontend
-npm test
-
-# Run all tests
-npm run test:all
-```
-
-### Test Coverage
-
-We aim for:
-- **Backend**: >85% code coverage
-- **Frontend**: >80% code coverage
-
-## ⚡ Performance
-
-The copilot is optimized for:
-- **Fast Analysis**: Analyzes large codebases in seconds
-- **Scalable Suggestions**: Handles projects with thousands of files
-- **Efficient Test Generation**: Creates meaningful tests without bloat
-- **Low Memory Footprint**: Minimal resource consumption
-
-### Performance Benchmarks
-
-| Metric | Value |
-|--------|-------|
-| Analysis Speed | ~1000 files/second |
-| Test Generation | ~10ms per method |
-| Suggestion Accuracy | 94% |
-| False Positive Rate | <2% |
-
-## 🗺️ Roadmap
-
-- [ ] Support for VB.NET codebases
-- [ ] Visual Studio extension
-- [ ] Visual Studio Code extension
-- [ ] Cloud-based analysis service
-- [ ] Custom rule configuration
-- [ ] Team collaboration features
-- [ ] Historical refactoring tracking
-- [ ] CI/CD pipeline integration
-- [ ] Performance profiling suggestions
-
-## ⚠️ Known Limitations
-
-- Currently optimized for .NET 4.5+
-- Best results with well-documented legacy code
-- Requires sufficient test coverage for validation
-- Some complex patterns may require manual review
-- VB.NET support coming soon
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Issue**: Analysis takes too long
-- **Solution**: Check file exclusion patterns in configuration or exclude large binary directories
-
-**Issue**: Generated tests are incomplete
-- **Solution**: Ensure source code has adequate documentation and public interfaces
-
-**Issue**: Refactoring suggestions seem inaccurate
-- **Solution**: Verify code follows standard .NET patterns and conventions
-
-**Issue**: Frontend won't connect to backend
-- **Solution**: Ensure backend is running on the correct port (default: 5000)
-
-For more troubleshooting, see [FAQ](docs/FAQ.md).
-
-## 📋 System Requirements
-
-- **Operating System**: Windows, macOS, or Linux
-- **.NET Runtime**: 6.0 or higher
-- **Node.js**: 16.x or higher
-- **RAM**: Minimum 2GB (4GB recommended for large projects)
-- **Disk Space**: 500MB for installation
-
-## 🔐 Security
-
-- All code analysis is performed locally
-- No code is sent to external services by default
-- Optional cloud integration available with authentication
-- Regular security updates and dependency audits
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 💬 Support
-
-For support, please:
-
-1. Check the [FAQ](docs/FAQ.md)
-2. Search [existing issues](https://github.com/shreerachanaa1010-spec/legacy-modernization-copilot/issues)
-3. Review [discussions](https://github.com/shreerachanaa1010-spec/legacy-modernization-copilot/discussions)
-4. [Create a new issue](https://github.com/shreerachanaa1010-spec/legacy-modernization-copilot/issues/new) with detailed information
-
-## 👏 Acknowledgments
-
-- Thanks to all contributors who have helped this project grow
-- Inspired by modern .NET best practices and standards
-- Built with community feedback and needs in mind
-
-## 📞 Contact
-
-- **Author**: [shreerachanaa1010-spec](https://github.com/shreerachanaa1010-spec)
-- **Issues**: [GitHub Issues](https://github.com/shreerachanaa1010-spec/legacy-modernization-copilot/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/shreerachanaa1010-spec/legacy-modernization-copilot/discussions)
-
----
-
-**Made with ❤️ for the .NET community**
-
-Last updated: 2026-08-18
-
-# Legacy Modernization Copilot
-
-A .NET-based modernization assistant that combines static analysis, retrieval-augmented generation, and verification to help modernize legacy codebases with grounded evidence.
-
-## Overview
-
-This project analyzes legacy code, identifies modernization issues, retrieves the most relevant repository evidence, and then uses an LLM to propose refactorings. The verifier ultimately checks whether the generated solution is valid and safe.
-
-The system is designed to keep the model anchored to real repository context instead of generating code based only on the issue description.
-
-## High-level architecture
+## Architecture
 
 ```mermaid
 flowchart TD
-    A[Legacy codebase] --> B[Analyzer]
-    B --> C[AnalysisIssue]
-    C --> D[Repository Retriever]
-    D --> E[Vector Search / Evidence Lookup]
-    E --> F[Gemini Generation]
-    F --> G[RefactorSuggestion]
-    G --> H[Verifier]
-    H --> I[Validated modernization output]
-    D --> J[Source files + tests + docs]
-    J --> E
+    User[Developer] --> UI[React + Vite frontend]
+    UI --> API[ASP.NET Core API]
+    API --> Analyzer[Roslyn Analyzer]
+    Analyzer --> Issue[AnalysisIssue]
+    Issue --> Retriever[IRepositoryRetriever]
+    Retriever --> Deterministic[Deterministic Roslyn retrieval\nsource, symbols, callers, implementations, tests]
+    Retriever --> Hybrid[Hybrid enrichment]
+    Hybrid --> FTS[SQLite FTS5\nfree default lexical search]
+    Hybrid --> Vector[Optional local vectors]
+    Vector --> SQLiteVec[SQLite vector store]
+    Vector --> Lance[LanceDB OSS adapter]
+    Deterministic --> Evidence[Evidence packager\nIDs, hashes, lines, symbols, scores]
+    FTS --> Evidence
+    SQLiteVec --> Evidence
+    Lance --> Evidence
+    Evidence --> LLM[Optional structured model generation]
+    LLM --> Suggestion[Validated RefactorSuggestion\nrequired evidence IDs]
+    Suggestion --> Tests[Generated tests]
+    Tests --> Verifier[Local Verifier\nbuild, tests, behavior]
+    Verifier --> Safety{Both original and\nrefactored tests pass?}
+    Safety -->|Yes| Accepted[IsSafe = true\naccepted_refactorings]
+    Safety -->|No or not run| Review[Review-only\nIsSafe = false]
 ```
 
-## Current technology stack
+**Source of truth:** deterministic Roslyn evidence. SQLite FTS5 and optional local vectors only enrich or rerank evidence. The verifier is the only authority that can set `IsSafe`.
 
-### Core platform
-- .NET 10
-- ASP.NET Core
-- C#
+## Prerequisites
 
-### Retrieval and agentic context layer
-- Python service for retrieval orchestration
-- Local in-memory vector store for prototype/testing
-- PostgreSQL + pgvector via Docker for production-oriented storage
+- .NET 10 SDK.
+- Node.js and npm for the frontend.
+- Python 3.11+ for the optional Python RAG worker and evaluation tools.
+- Docker Desktop only if using the Compose workflow.
 
-### LLM layer
-- Gemini API for grounded generation
-- Retrieval context is passed to the model before code generation
+No PostgreSQL server is required.
 
-### Verification layer
-- .NET verifier checks generated outputs against project behavior and safety constraints
+## Configuration
 
-## Repository structure
-
-- `backend/` - main .NET backend services
-- `python/` - Python-based retrieval and agentic RAG prototype
-- `docs/` - design and planning documents
-- `samples/` - sample legacy and modern projects
-- `tools/` - supporting tooling and runner utilities
-
-## Python RAG prototype
-
-The Python layer provides the retrieval engine and the evidence-grounding workflow.
-
-### Example usage
-
-```bash
-cd python
-python -m pytest tests/test_agentic_rag.py -q
-```
-
-### Sample flow
-
-```python
-from agentic_rag import AgenticRagPipeline
-
-pipeline = AgenticRagPipeline(repo_root=".")
-result = pipeline.run("Explain how refund processing works in this codebase")
-print(result["answer"])
-print(result["evidence"])
-```
-
-## Docker setup for vector storage
-
-A PostgreSQL + pgvector container is included for future production indexing.
-
-```bash
-docker-compose up -d
-```
-
-This starts a local PostgreSQL instance with pgvector support on port `5432`.
-
-## Environment configuration
-
-Copy the example environment file and fill in your real values:
-
-```bash
-copy .env.example .env
-```
-
-Then set:
-
-- `GEMINI_API_KEY` for the generation layer
-- `PGVECTOR_CONNECTION_STRING` for the PostgreSQL + pgvector connector
-
-The Python RAG service reads these values automatically when present.
-
-## Recommended architecture for production
-
-1. Analyzer emits a modernization issue.
-2. Retriever loads the primary source file plus related files and tests.
-3. Python RAG service indexes and queries repository evidence.
-4. Gemini receives the issue plus evidence and generates a refactor suggestion.
-5. Verifier confirms build/test validity and safety.
-6. Approved changes are applied only after verification.
-
-## Setup steps
-
-### 1. Clone the repository
-
-```bash
-git clone <repo-url>
-cd legacy-modernization-copilot
-```
-
-### 2. Start vector storage
-
-```bash
-docker-compose up -d
-```
-
-### 3. Configure environment variables
-
-Create a local environment file from the sample:
-
-```bash
-copy .env.example .env
-```
-
-Then edit `.env` and set:
-
-```env
-GEMINI_API_KEY=your_api_key_here
-PGVECTOR_CONNECTION_STRING=postgresql://postgres:postgres@localhost:5432/legacy_rag
-```
-
-On Linux/macOS:
-
-```bash
-export GEMINI_API_KEY="your_api_key_here"
-export PGVECTOR_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/legacy_rag"
-```
-
-On Windows PowerShell:
+Copy the example configuration to a local environment file. Do not commit secrets.
 
 ```powershell
-$env:GEMINI_API_KEY="your_api_key_here"
-$env:PGVECTOR_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/legacy_rag"
+Copy-Item .env.example .env
 ```
 
-### 4. Build the .NET solution
+Important settings:
 
-```bash
-cd backend
-dotnet build
+| Variable | Default | Purpose |
+|---|---|---|
+| `RAG_STORE_MODE` | `sqlite` | Local SQLite default; `lancedb` is optional local enrichment. |
+| `RAG_SQLITE_PATH` | `./.legacy_rag.sqlite3` | SQLite database location. |
+| `RAG_EMBEDDING_PROVIDER` | `none` | Lexical-only default. Optional `gemini` enables semantic embeddings. |
+| `RAG_EMBEDDING_MODEL` | `gemini-embedding-001` | Embedding model metadata. |
+| `RAG_INDEX_VERSION` | `1` | Index compatibility version. |
+| `GEMINI_API_KEY` | empty | Optional generation and Gemini embedding key. |
+
+The default path is SQLite plus FTS5 and works without an API key. LanceDB requires the open-source `lancedb` Python package and a real embedding provider.
+
+## Run Locally
+
+From the repository root:
+
+```powershell
+dotnet restore
+dotnet build backend/src/LegacyModernization.Api/LegacyModernization.Api.csproj
 ```
 
-### 5. Run Python validation tests
+Start the API:
 
-```bash
-cd python
-python -m pytest tests/test_agentic_rag.py -q
+```powershell
+dotnet run --project backend/src/LegacyModernization.Api/LegacyModernization.Api.csproj --launch-profile http
 ```
 
-## Design principles
+The API runs at `http://localhost:5198`. OpenAPI/Scalar is available from the API application.
 
-- Retrieval is grounded in repository evidence.
-- LLM output is treated as a suggestion, not as fact.
-- Verification is required before accepting modernization changes.
-- The agent must stay within the allowed repository scope.
-- Deterministic file and symbol retrieval is preferred before vector search.
+In a second terminal, install and start the frontend:
 
-## Future roadmap
+```powershell
+Set-Location frontend
+npm install
+npm run dev
+```
 
-### Phase 1: Deterministic retrieval
-- primary file retrieval
-- related source/test lookup
-- repository containment checks
-- evidence packaging for prompts
+The frontend runs at `http://localhost:5173`.
 
-### Phase 2: Symbol-aware retrieval
-- class/method context
-- call graph awareness
-- related file and symbol relevance scoring
+## Docker
 
-### Phase 3: Vector database integration
-- persistent pgvector indexing
-- chunk metadata and filtering
-- hybrid keyword + semantic retrieval
+Docker Desktop is required for this path:
 
-### Phase 4: Agent orchestration
-- multi-step reasoning flows
-- plan generation
-- patch approval and verification loops
+```powershell
+docker compose up --build
+```
 
-## License
+The Compose services expose the frontend at `http://localhost:5173` and backend at `http://localhost:5198`.
 
-This project is provided under the repository license terms.
+## API Workflow
+
+1. `POST /api/analysis` analyzes a project with Roslyn.
+2. `POST /api/suggestions` retrieves evidence and generates suggestions when a model is configured.
+3. `POST /api/testgeneration` generates tests when a model is configured.
+4. `POST /api/verification` runs tests against a test project.
+5. `POST /api/pipeline` runs analysis, retrieval, generation, test generation, and verification together.
+
+Example pipeline request:
+
+```json
+{
+  "projectPath": "samples/LegacySampleProject/LegacySampleProject.csproj",
+  "testProjectPath": "samples/LegacySampleProject.Tests/LegacySampleProject.Tests.csproj"
+}
+```
+
+A suggestion is never safe merely because a model generated it. `IsSafe` becomes true only when the verifier confirms the required original and refactored behavior checks.
+
+## Tests And Evaluation
+
+Backend RAG tests:
+
+```powershell
+dotnet test backend/tests/LegacyModernization.Rag.Tests/LegacyModernization.Rag.Tests.csproj
+```
+
+Python tests:
+
+```powershell
+python -m pytest python/tests -q
+```
+
+Run the local retrieval evaluation:
+
+```powershell
+python python/evaluate_rag.py `
+  --repo-root samples/LegacySampleProject `
+  --dataset python/tests/fixtures/retrieval-golden.jsonl `
+  --output reports/rag-eval-report.json
+```
+
+The report includes Recall@10, MRR, retrieval mode, embedding model, index version, and elapsed time.
+
+## Project Layout
+
+```text
+backend/src/
+  LegacyModernization.Analyzer/       Roslyn analysis and rules
+  LegacyModernization.Api/            ASP.NET Core API
+  LegacyModernization.Core/           Shared contracts and models
+  LegacyModernization.LLM/            Optional structured generation
+  LegacyModernization.Rag/            SQLite, FTS5, Roslyn retrieval, indexing
+  LegacyModernization.Verifier/       Build/test/behavior verification
+frontend/                              React + Vite UI
+python/                                Optional local RAG worker and evaluation
+samples/                               Legacy and refactored sample projects
+docs/rag-implementation-plan.md       Architecture and delivery plan
+reports/                               Evaluation and analysis output
+```
+
+## Open-Source And Cost Boundary
+
+The default development path uses SQLite, FTS5, Roslyn, .NET, Python, React, Vite, and optional LanceDB OSS. It does not need hosted PostgreSQL, cloud deployment, hosted storage, hosted networking, or paid embedding/model services.
+
+Optional Gemini integration may incur provider charges. It is not required for local analysis, deterministic retrieval, indexing, testing, or verification.
+
+## Known Notices
+
+Package restore currently reports advisories for transitive `SQLitePCLRaw.lib.e_sqlite3` and `Microsoft.OpenApi` dependencies. These should be reviewed and upgraded when compatible fixed versions are available.
+
+See [docs/rag-implementation-plan.md](docs/rag-implementation-plan.md) for the detailed architecture, phases, schema, guardrails, and evaluation plan.

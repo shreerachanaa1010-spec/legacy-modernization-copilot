@@ -76,6 +76,9 @@ export function HomePage() {
           <label className="block text-sm font-medium text-slate-300 mb-2">
             Project Path
           </label>
+          <p className="text-xs text-slate-500 mb-2">
+            Enter a .csproj file path, or a folder containing exactly one .csproj file.
+          </p>
           <div className="relative mb-3">
             <input
               type="text"

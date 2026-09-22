@@ -1,0 +1,2 @@
+{"query": "refund processing", "expected_paths": ["PaymentService.cs"]}
+{"query": "payment invoice", "expected_paths": ["docs/notes.md"]}
