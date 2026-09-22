@@ -6,6 +6,8 @@ public class VerificationResult
 
     public bool RefactoredTestPassed { get; set; }
 
+    public bool IsSafe { get; set; }
+
     public string Status { get; set; } = string.Empty;
 
     public string OriginalOutput { get; set; } = string.Empty;

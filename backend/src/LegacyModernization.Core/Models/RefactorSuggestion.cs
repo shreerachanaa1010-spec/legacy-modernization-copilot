@@ -14,5 +14,11 @@ public class RefactorSuggestion
 
     public string Explanation { get; set; } = "";
 
+    public List<string> EvidenceIds { get; set; } = [];
+
+    public string GenerationStatus { get; set; } = "pending-verification";
+
+    public double? Confidence { get; set; }
+
     public bool IsSafe { get; set; }
 }

@@ -1,4 +1,5 @@
-using LegacyModernization.Analyzer.Models;
+using LegacyModernization.Core.Models;
+using LegacyModernization.Rag.Models;
 using LegacyModernization.Rag.Services;
 using Xunit;
 
@@ -31,6 +32,7 @@ public sealed class FileSystemRepositoryRetrieverTests
         Assert.Contains(context.Documents, document =>
             document.SourceType == "related-test" &&
             document.Content.Contains("CustomerServiceTests", StringComparison.Ordinal));
+        Assert.All(context.Documents, document => Assert.False(string.IsNullOrWhiteSpace(document.EvidenceId)));
 
         Directory.Delete(root, recursive: true);
     }
@@ -55,6 +57,42 @@ public sealed class FileSystemRepositoryRetrieverTests
 
         Directory.Delete(root, recursive: true);
         File.Delete(outsidePath);
+    }
+
+    [Fact]
+    public async Task SqliteVectorStore_PersistsAndRanksDocuments()
+    {
+        var root = CreateTemporaryRepository();
+        var databasePath = Path.Combine(root, "rag.db");
+        var store = new SqliteVectorStore(databasePath);
+        var document = new RetrievedDocument
+        {
+            SourceType = "primary-source",
+            RetrievalMethod = "deterministic-filesystem",
+            FilePath = "CustomerService.cs",
+            LineStart = 4,
+            LineEnd = 8,
+            Symbol = "CustomerService",
+            Content = "class CustomerService { }"
+        };
+
+        await store.UpsertAsync(new VectorDocument
+        {
+            Id = "customer-service",
+            Document = document,
+            Embedding = [1, 0, 0]
+        });
+
+        var results = await store.SearchAsync([1, 0, 0], 1);
+
+        var result = Assert.Single(results);
+        Assert.Equal("CustomerService.cs", result.Document.FilePath);
+        Assert.Equal("sqlite-vector", result.Document.RetrievalMethod);
+        Assert.Equal(4, result.Document.LineStart);
+        Assert.Equal(8, result.Document.LineEnd);
+        Assert.Equal(1, result.Document.Score);
+
+        Directory.Delete(root, recursive: true);
     }
 
     private static string CreateTemporaryRepository()

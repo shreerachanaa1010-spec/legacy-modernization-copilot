@@ -2,6 +2,8 @@ using LegacyModernization.Analyzer.Services;
 using LegacyModernization.Api.Models;
 using LegacyModernization.Core.Models;
 using LegacyModernization.LLM.Services;
+using LegacyModernization.Rag.Models;
+using LegacyModernization.Rag.Services;
 using LegacyModernization.TestGenerator.Services;
 using LegacyModernization.Verifier.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -15,17 +17,20 @@ public class PipelineController : ControllerBase
     private readonly IProjectAnalyzer _analyzer;
     private readonly ILlmService _llmService;
     private readonly ITestGenerator _testGenerator;
+    private readonly IRepositoryRetriever _retriever;
     private readonly VerificationService _verifier;
 
     public PipelineController(
         IProjectAnalyzer analyzer,
         ILlmService llmService,
         ITestGenerator testGenerator,
+        IRepositoryRetriever retriever,
         VerificationService verifier)
     {
         _analyzer = analyzer;
         _llmService = llmService;
         _testGenerator = testGenerator;
+        _retriever = retriever;
         _verifier = verifier;
     }
 
@@ -45,13 +50,16 @@ public class PipelineController : ControllerBase
 
         // Step 1: Analyze
         var analysis = await _analyzer.AnalyzeAsync(projectFullPath);
+        var projectRoot = Path.GetDirectoryName(projectFullPath)!;
 
         // Step 2: Generate suggestions (parallel for speed)
         var suggestionTasks = analysis.Issues.Select(async issue =>
         {
             try
             {
-                return await _llmService.GenerateSuggestionAsync(issue);
+                return await _llmService.GenerateSuggestionAsync(
+                    issue,
+                    await _retriever.RetrieveAsync(issue, projectRoot));
             }
             catch (Exception ex)
             {
@@ -110,7 +118,6 @@ public class PipelineController : ControllerBase
                 for (int i = 0; i < analysis.Issues.Count; i++)
                 {
                     if (i < suggestions.Count
-                        && suggestions[i].IsSafe
                         && !string.IsNullOrWhiteSpace(suggestions[i].RefactoredCode)
                         && !string.IsNullOrWhiteSpace(analysis.Issues[i].FilePath))
                     {
@@ -130,11 +137,20 @@ public class PipelineController : ControllerBase
                 {
                     verification = await _verifier.VerifyAsync(testFullPath);
                 }
+
+                var isSafe = verification.IsSafe;
+                foreach (var suggestion in suggestions)
+                {
+                    suggestion.IsSafe = isSafe;
+                }
             }
         }
 
         return Ok(new PipelineResult
         {
+            RetrievalMode = Environment.GetEnvironmentVariable("RAG_STORE_MODE") ?? "sqlite",
+            EmbeddingModel = Environment.GetEnvironmentVariable("RAG_EMBEDDING_MODEL") ?? "",
+            IndexVersion = Environment.GetEnvironmentVariable("RAG_INDEX_VERSION") ?? "1",
             Analysis = analysis,
             Suggestions = suggestions,
             GeneratedTests = generatedTests,

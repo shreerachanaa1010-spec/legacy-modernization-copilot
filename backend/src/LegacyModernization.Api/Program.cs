@@ -1,5 +1,6 @@
 using LegacyModernization.Analyzer.Services;
 using LegacyModernization.LLM.Services;
+using LegacyModernization.Rag.Services;
 using LegacyModernization.TestGenerator.Services;
 using LegacyModernization.Verifier.Services;
 using Scalar.AspNetCore;
@@ -13,6 +14,17 @@ builder.Services.AddOpenApi();
 // Register pipeline services
 builder.Services.AddSingleton<IProjectAnalyzer, ProjectAnalyzer>();
 builder.Services.AddSingleton<ILlmService, GeminiService>();
+builder.Services.AddSingleton<FileSystemRepositoryRetriever>();
+builder.Services.AddSingleton<LongLivedPythonRepositoryRetriever>();
+builder.Services.AddSingleton<HybridRepositoryRetriever>();
+builder.Services.AddSingleton<IRepositoryRetriever>(serviceProvider =>
+    serviceProvider.GetRequiredService<HybridRepositoryRetriever>());
+builder.Services.AddSingleton<SqliteVectorStore>(_ =>
+    new SqliteVectorStore(Path.Combine(AppContext.BaseDirectory, "data", "rag.db")));
+builder.Services.AddSingleton<IVectorStore>(serviceProvider =>
+    serviceProvider.GetRequiredService<SqliteVectorStore>());
+builder.Services.AddSingleton<IAcceptedRefactoringStore>(serviceProvider =>
+    serviceProvider.GetRequiredService<SqliteVectorStore>());
 builder.Services.AddSingleton<ITestGenerator, GeminiTestGenerator>();
 builder.Services.AddSingleton<VerificationService>();
 builder.Services.AddSingleton<TestRunner>();

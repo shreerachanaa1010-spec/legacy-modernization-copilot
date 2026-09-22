@@ -1,30 +1,31 @@
 from __future__ import annotations
 
-import math
 import os
-from dataclasses import dataclass, field
 from typing import Any
 
-
-@dataclass
-class VectorDocument:
-    source_path: str
-    content: str
-    metadata: dict[str, Any] = field(default_factory=dict)
-    vector: list[float] | None = None
+from embedding_provider import EmbeddingProvider, configured_embedding_provider
+from retrieval_contract import SearchResult
 
 
 class PgVectorRagStore:
-    def __init__(self, connection_string: str | None = None) -> None:
+    def __init__(
+        self,
+        connection_string: str | None = None,
+        embedding_provider: EmbeddingProvider | None = None,
+    ) -> None:
         self.connection_string = connection_string or os.getenv(
             "PGVECTOR_CONNECTION_STRING",
             "postgresql://postgres:postgres@localhost:5432/legacy_rag",
         )
+        self.embedding_provider = embedding_provider or configured_embedding_provider()
         self._client = None
         self._ready = False
         self._connect()
 
     def _connect(self) -> None:
+        if self.embedding_provider is None:
+            return
+
         try:
             import psycopg
 
@@ -38,7 +39,7 @@ class PgVectorRagStore:
                         source_path TEXT NOT NULL,
                         content TEXT NOT NULL,
                         metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-                        embedding vector(384)
+                        embedding vector({self.embedding_provider.dimension})
                     )
                     """
                 )
@@ -53,22 +54,12 @@ class PgVectorRagStore:
         return self._ready and self._client is not None
 
     def _embedding(self, text: str) -> list[float]:
-        tokens = [token.lower() for token in text.replace("\n", " ").split() if token.strip()]
-        if not tokens:
-            return [0.0] * 384
-
-        counts: dict[str, float] = {}
-        for token in tokens:
-            counts[token] = counts.get(token, 0.0) + 1.0
-
-        normalized = [value / math.sqrt(sum(v * v for v in counts.values())) for value in counts.values()]
-        if not normalized:
-            return [0.0] * 384
-
-        vector = [0.0] * 384
-        for index, value in enumerate(normalized[:384]):
-            vector[index] = value
-        return vector
+        if self.embedding_provider is None:
+            raise RuntimeError(
+                "A real embedding provider is required for pgvector. "
+                "Set RAG_EMBEDDING_PROVIDER=gemini or use RAG_STORE_MODE=sqlite."
+            )
+        return self.embedding_provider.embed(text)
 
     def add_document(self, content: str, source_path: str, metadata: dict[str, Any] | None = None) -> None:
         if not self.is_ready:
@@ -89,27 +80,29 @@ class PgVectorRagStore:
             )
         self._client.commit()
 
-    def search(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
+    def search(self, query: str, limit: int = 5) -> list[SearchResult]:
         if not self.is_ready:
             raise RuntimeError("pgvector database is not available. Use the local fallback store instead.")
 
         with self._client.cursor() as cur:
             cur.execute(
                 """
-                SELECT source_path, content, metadata
+                  SELECT source_path, content, metadata,
+                      1 - (embedding <=> %s) AS score
                 FROM repo_vectors
                 ORDER BY embedding <=> %s
                 LIMIT %s
                 """,
-                (self._embedding(query), limit),
+                  (self._embedding(query), self._embedding(query), limit),
             )
             rows = cur.fetchall()
 
         return [
-            {
-                "source_path": source_path,
-                "content": content,
-                "metadata": metadata,
-            }
-            for source_path, content, metadata in rows
+            SearchResult(
+                source_path=source_path,
+                content=content,
+                metadata=metadata or {},
+                score=float(score),
+            )
+            for source_path, content, metadata, score in rows
         ]

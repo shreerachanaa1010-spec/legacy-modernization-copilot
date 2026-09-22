@@ -25,6 +25,9 @@ public class PipelineRequest
 
 public class PipelineResult
 {
+    public string RetrievalMode { get; set; } = "sqlite";
+    public string EmbeddingModel { get; set; } = "";
+    public string IndexVersion { get; set; } = "1";
     public Analyzer.Models.ProjectAnalysisResult Analysis { get; set; } = new();
     public List<RefactorSuggestion> Suggestions { get; set; } = new();
     public List<GeneratedTest> GeneratedTests { get; set; } = new();

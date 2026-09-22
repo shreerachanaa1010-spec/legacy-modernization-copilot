@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
-using LegacyModernization.Analyzer.Models;
+using LegacyModernization.Core.Models;
 using LegacyModernization.Rag.Models;
 
 namespace LegacyModernization.Rag.Services;
@@ -137,8 +137,27 @@ public sealed class PythonRepositoryRetriever : IRepositoryRetriever
             documents.Add(new RetrievedDocument
             {
                 SourceType = "python-rag-evidence",
+                RetrievalMethod = "vector-enrichment",
+                EvidenceId = item.TryGetProperty("evidence_id", out var evidenceId)
+                    ? evidenceId.GetString() ?? string.Empty
+                    : string.Empty,
+                Score = item.TryGetProperty("score", out var scoreElement) &&
+                        scoreElement.TryGetDouble(out var score)
+                    ? score
+                    : null,
+                Symbol = item.TryGetProperty("symbol", out var symbolElement)
+                    ? symbolElement.GetString() ?? string.Empty
+                    : string.Empty,
                 FilePath = sourcePath,
-                Content = content
+                Content = content,
+                LineStart = item.TryGetProperty("line_start", out var lineStartElement) &&
+                            lineStartElement.TryGetInt32(out var lineStart)
+                    ? lineStart
+                    : null,
+                LineEnd = item.TryGetProperty("line_end", out var lineEndElement) &&
+                          lineEndElement.TryGetInt32(out var lineEnd)
+                    ? lineEnd
+                    : null
             });
         }
 

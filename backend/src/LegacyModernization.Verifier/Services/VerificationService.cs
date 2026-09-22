@@ -41,6 +41,7 @@ public class VerificationService
         {
             OriginalTestPassed = result.Passed,
             RefactoredTestPassed = false,
+            IsSafe = false,
             Status = result.Passed
                 ? "ORIGINAL_PASS"
                 : "ORIGINAL_FAIL",
@@ -132,6 +133,7 @@ public class VerificationService
         {
             OriginalTestPassed = originalResult.Passed,
             RefactoredTestPassed = refactoredPassed,
+            IsSafe = originalResult.Passed && refactoredPassed,
             Status = status,
             OriginalOutput = originalResult.Output,
             RefactoredOutput = refactoredOutput,

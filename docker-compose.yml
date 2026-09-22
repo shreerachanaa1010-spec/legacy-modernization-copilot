@@ -1,3 +1,5 @@
+version: '3.9'
+
 services:
   backend:
     build:
@@ -8,11 +10,13 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
+      - RAG_STORE_MODE=sqlite
     env_file:
       - ./backend/src/LegacyModernization.Api/.env
     volumes:
       - ./samples:/app/samples
       - ./reports:/app/reports
+      - ./.legacy_rag.sqlite3:/data/.legacy_rag.sqlite3
 
   frontend:
     build:
@@ -22,22 +26,3 @@ services:
       - "5173:80"
     depends_on:
       - backend
-
-version: '3.9'
-
-services:
-  postgres:
-    image: pgvector/pgvector:pg16
-    container_name: legacy-rag-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: legacy_rag
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:

@@ -10,6 +10,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from agentic_rag import AgenticRagPipeline, LocalVectorStore
 
 
+def test_default_pipeline_uses_sqlite_store(monkeypatch: object) -> None:
+    monkeypatch.delenv("RAG_STORE_MODE", raising=False)
+
+    pipeline = AgenticRagPipeline(repo_root=".", vector_store=None)
+
+    assert hasattr(pipeline.store, "sqlite_path") or pipeline.store.__class__.__name__ == "SQLiteRagStore"
+
+
 def test_local_vector_store_matches_relevant_document() -> None:
     vector_store = LocalVectorStore()
     vector_store.add_document(

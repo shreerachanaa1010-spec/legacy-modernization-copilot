@@ -1,4 +1,4 @@
-using LegacyModernization.Analyzer.Models;
+using LegacyModernization.Core.Models;
 using LegacyModernization.Rag.Models;
 
 namespace LegacyModernization.Rag.Services;

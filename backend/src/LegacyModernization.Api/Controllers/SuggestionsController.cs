@@ -2,6 +2,8 @@ using LegacyModernization.Analyzer.Services;
 using LegacyModernization.Api.Models;
 using LegacyModernization.Core.Models;
 using LegacyModernization.LLM.Services;
+using LegacyModernization.Rag.Models;
+using LegacyModernization.Rag.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LegacyModernization.Api.Controllers;
@@ -12,11 +14,16 @@ public class SuggestionsController : ControllerBase
 {
     private readonly IProjectAnalyzer _analyzer;
     private readonly ILlmService _llmService;
+    private readonly IRepositoryRetriever _retriever;
 
-    public SuggestionsController(IProjectAnalyzer analyzer, ILlmService llmService)
+    public SuggestionsController(
+        IProjectAnalyzer analyzer,
+        ILlmService llmService,
+        IRepositoryRetriever retriever)
     {
         _analyzer = analyzer;
         _llmService = llmService;
+        _retriever = retriever;
     }
 
     /// <summary>
@@ -34,12 +41,15 @@ public class SuggestionsController : ControllerBase
             return NotFound($"Project file not found: {fullPath}");
 
         var analysis = await _analyzer.AnalyzeAsync(fullPath);
+        var projectRoot = Path.GetDirectoryName(fullPath)!;
 
         var suggestionTasks = analysis.Issues.Select(async issue =>
         {
             try
             {
-                return await _llmService.GenerateSuggestionAsync(issue);
+                return await _llmService.GenerateSuggestionAsync(
+                    issue,
+                    await _retriever.RetrieveAsync(issue, projectRoot));
             }
             catch (Exception ex)
             {

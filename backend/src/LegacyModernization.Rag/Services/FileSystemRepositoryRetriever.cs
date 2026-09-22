@@ -1,5 +1,7 @@
-using LegacyModernization.Analyzer.Models;
+using LegacyModernization.Core.Models;
 using LegacyModernization.Rag.Models;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace LegacyModernization.Rag.Services;
 
@@ -29,6 +31,8 @@ public sealed class FileSystemRepositoryRetriever : IRepositoryRetriever
             documents.Add(await ReadDocumentAsync(
                 primaryPath,
                 "primary-source",
+                issue.LineNumber > 0 ? issue.LineNumber : 1,
+                issue.LineNumber > 0 ? issue.LineNumber : null,
                 cancellationToken));
         }
 
@@ -37,6 +41,8 @@ public sealed class FileSystemRepositoryRetriever : IRepositoryRetriever
             documents.Add(await ReadDocumentAsync(
                 relatedPath,
                 IsTestFile(relatedPath) ? "related-test" : "related-source",
+                1,
+                null,
                 cancellationToken));
         }
 
@@ -89,14 +95,33 @@ public sealed class FileSystemRepositoryRetriever : IRepositoryRetriever
     private static async Task<RetrievedDocument> ReadDocumentAsync(
         string path,
         string sourceType,
+        int lineStart,
+        int? lineEnd,
         CancellationToken cancellationToken)
     {
+        var content = await File.ReadAllTextAsync(path, cancellationToken);
+        var totalLines = content.Split('\n').Length;
+        var resolvedLineEnd = lineEnd ?? totalLines;
         return new RetrievedDocument
         {
+            EvidenceId = CreateEvidenceId(path, lineStart, resolvedLineEnd, content),
             SourceType = sourceType,
+            RetrievalMethod = "deterministic-filesystem",
+            Score = string.Equals(sourceType, "primary-source", StringComparison.Ordinal)
+                ? 1.0
+                : 0.5,
             FilePath = path,
-            Content = await File.ReadAllTextAsync(path, cancellationToken)
+            Symbol = Path.GetFileNameWithoutExtension(path),
+            LineStart = lineStart,
+            LineEnd = resolvedLineEnd,
+            Content = content
         };
+    }
+
+    private static string CreateEvidenceId(string path, int lineStart, int lineEnd, string content)
+    {
+        var fingerprint = $"{Path.GetFullPath(path)}:{lineStart}:{lineEnd}:{content}";
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(fingerprint)))[..16].ToLowerInvariant();
     }
 
     private static bool IsTestFile(string path)

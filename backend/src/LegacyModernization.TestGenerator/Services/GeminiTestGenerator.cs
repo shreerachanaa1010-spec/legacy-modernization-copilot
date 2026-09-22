@@ -9,19 +9,15 @@ public class GeminiTestGenerator : ITestGenerator
 {
     private readonly GenerativeModel _model;
 
-    public GeminiTestGenerator()
+    public GeminiTestGenerator(IConfiguration? configuration = null)
     {
-        var config = new ConfigurationBuilder()
-            .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFile("appsettings.json", optional: false)
-            .Build();
-
-        var apiKey = config["Gemini:ApiKey"];
+        var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY")
+                     ?? configuration?["Gemini:ApiKey"];
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             throw new InvalidOperationException(
-                "Gemini API key was not found in appsettings.json.");
+                "Gemini API key was not found in GEMINI_API_KEY.");
         }
 
         var googleAI = new GoogleAI(apiKey);
