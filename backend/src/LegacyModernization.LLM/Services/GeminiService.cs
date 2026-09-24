@@ -7,20 +7,19 @@ namespace LegacyModernization.LLM.Services;
 
 public class GeminiService : ILlmService
 {
-    private readonly GoogleAI? _googleAI;
+    private readonly string? _apiKey;
 
     public GeminiService(IConfiguration configuration)
     {
-        var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY")
+        _apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY")
                  ?? configuration["Gemini:ApiKey"];
-        _googleAI = string.IsNullOrWhiteSpace(apiKey) ? null : new GoogleAI(apiKey);
     }
 
     public async Task<RefactorSuggestion> GenerateSuggestionAsync(
         AnalysisIssue issue,
         RetrievedContext context)
     {
-        if (_googleAI is null)
+        if (string.IsNullOrWhiteSpace(_apiKey))
         {
             return new RefactorSuggestion
             {
@@ -36,7 +35,8 @@ public class GeminiService : ILlmService
 
         try
         {
-            var model = _googleAI.GenerativeModel("gemini-3.6-flash");
+            var googleAI = new GoogleAI(_apiKey);
+            var model = googleAI.GenerativeModel(GetModelName());
             if (model is null)
             {
                 return CreateGenerationFailure(issue, "Gemini did not return a generative model.");
@@ -87,7 +87,19 @@ Evidence requirements:
 - Return insufficient_evidence when the context does not support a claim.
 """;
 
-            var response = await model.GenerateContent(prompt);
+            var generationTask = model.GenerateContent(prompt);
+            var completedTask = await Task.WhenAny(
+                generationTask,
+                Task.Delay(GetTimeout()));
+
+            if (completedTask != generationTask)
+            {
+                return CreateLocalFallback(
+                    issue,
+                    $"Gemini timed out after {GetTimeout().TotalSeconds:0} seconds. Showing a deterministic rule-based recommendation.");
+            }
+
+            var response = await generationTask;
             var responseText = response?.Text;
             var evidenceIds = documents
             .Select(document => document.EvidenceId)
@@ -115,11 +127,34 @@ Evidence requirements:
         }
         catch (Exception exception)
         {
-            return CreateGenerationFailure(
+            return CreateLocalFallback(
                 issue,
                 $"Gemini request failed: {exception.GetBaseException().Message}");
         }
     }
+
+    private static RefactorSuggestion CreateLocalFallback(AnalysisIssue issue, string reason) =>
+        new()
+        {
+            RuleId = issue.RuleId,
+            IssueTitle = issue.Title,
+            Reason = issue.Description,
+            OriginalCode = issue.CodeSnippet,
+            RefactoredCode = issue.RuleId switch
+            {
+                "LMC001" when issue.CodeSnippet.Contains(".Result", StringComparison.Ordinal) =>
+                    "var result = await task;",
+                "LMC001" when issue.CodeSnippet.Contains(".Wait", StringComparison.Ordinal) =>
+                    "await task;",
+                "LMC002" => "using var client = new HttpClient();",
+                "LMC003" => $"{issue.CodeSnippet}.ConfigureAwait(false)",
+                "LMC004" => "protected virtual void Dispose(bool disposing) { }\n\npublic void Dispose()\n{\n    Dispose(true);\n    GC.SuppressFinalize(this);\n}",
+                _ => "Review the detected pattern and apply the recommended modern .NET equivalent."
+            },
+            Explanation = $"{reason} This local recommendation is not verified; review and test it before applying.",
+            GenerationStatus = "local-fallback",
+            IsSafe = false
+        };
 
     private static RefactorSuggestion CreateGenerationFailure(
         AnalysisIssue issue,
@@ -135,4 +170,13 @@ Evidence requirements:
             GenerationStatus = status,
             IsSafe = false
         };
+
+    private static TimeSpan GetTimeout() =>
+        TimeSpan.FromSeconds(
+            int.TryParse(Environment.GetEnvironmentVariable("GEMINI_TIMEOUT_SECONDS"), out var seconds)
+                ? Math.Clamp(seconds, 5, 300)
+                : 20);
+
+    private static string GetModelName() =>
+        Environment.GetEnvironmentVariable("GEMINI_MODEL") ?? "gemini-3.8-flash";
 }

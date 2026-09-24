@@ -1,100 +1,114 @@
 # Legacy Modernization Copilot
 
-Local-first tooling for analyzing legacy .NET projects, retrieving repository evidence, generating modernization suggestions, and verifying behavior with tests.
+Legacy Modernization Copilot is a local-first developer tool that helps modernize older .NET code safely. It combines Roslyn-based code analysis, repository-aware retrieval, Gemini suggestions, generated tests, and automated verification in one workflow.
 
-## Readiness
+## The Problem
 
-The backend and local RAG path are implemented and validated. The project does not require PostgreSQL, hosted infrastructure, or paid model services to start.
+Modernizing a legacy codebase is usually slow and risky because developers must:
+- find outdated patterns across a large project;
+- understand the surrounding code before changing it;
+- review whether an AI-generated change is appropriate; and
+- prove that the original behavior still works after the change.
 
-Current validation:
+This project turns those steps into a repeatable, evidence-based pipeline.
 
-- Backend RAG tests: 6 passed.
-- Python RAG tests: 6 passed.
-- Backend API build: passed.
-- Local retrieval evaluation smoke test: Recall@10 1.0, MRR 1.0.
-- Docker Compose validation: not run in the current environment because Docker is not installed.
-- Frontend build: requires `npm install` first; it was not available in the current environment because `node_modules` is absent.
+## What The Demo Shows
 
-Gemini generation is optional. Without `GEMINI_API_KEY`, the application returns review-only results and never marks a suggestion safe.
+1. Enter a `.csproj` path in the React interface.
+2. Roslyn opens the project and detects modernization issues such as sync-over-async code, legacy HTTP APIs, and disposable-resource patterns.
+3. The system retrieves the affected source file and relevant repository context.
+4. Gemini proposes a refactoring and explains the reasoning.
+5. Gemini generates a test for the finding.
+6. If a test project is supplied, the verifier builds and tests the original and refactored versions.
+7. The UI presents the issue, evidence, before/after code, test, and review decision.
 
-## Architecture
+## Simple Architecture
 
 ```mermaid
-flowchart TD
-    User[Developer] --> UI[React + Vite frontend]
-    UI --> API[ASP.NET Core API]
-    API --> Analyzer[Roslyn Analyzer]
-    Analyzer --> Issue[AnalysisIssue]
-    Issue --> Retriever[IRepositoryRetriever]
-    Retriever --> Deterministic[Deterministic Roslyn retrieval\nsource, symbols, callers, implementations, tests]
-    Retriever --> Hybrid[Hybrid enrichment]
-    Hybrid --> FTS[SQLite FTS5\nfree default lexical search]
-    Hybrid --> Vector[Optional local vectors]
-    Vector --> SQLiteVec[SQLite vector store]
-    Vector --> Lance[LanceDB OSS adapter]
-    Deterministic --> Evidence[Evidence packager\nIDs, hashes, lines, symbols, scores]
-    FTS --> Evidence
-    SQLiteVec --> Evidence
-    Lance --> Evidence
-    Evidence --> LLM[Optional structured model generation]
-    LLM --> Suggestion[Validated RefactorSuggestion\nrequired evidence IDs]
-    Suggestion --> Tests[Generated tests]
-    Tests --> Verifier[Local Verifier\nbuild, tests, behavior]
-    Verifier --> Safety{Both original and\nrefactored tests pass?}
-    Safety -->|Yes| Accepted[IsSafe = true\naccepted_refactorings]
-    Safety -->|No or not run| Review[Review-only\nIsSafe = false]
+flowchart LR
+  Developer[Developer] --> UI[React UI]
+  UI --> API[ASP.NET Core API]
+  API --> Analyze[1. Roslyn analysis]
+  Analyze --> Retrieve[2. Repository evidence]
+  Retrieve --> Suggest[3. Gemini suggestion]
+  Suggest --> Test[4. Generate tests]
+  Test --> Verify[5. Build and verify]
+  Verify --> Result[Reviewable result]
 ```
 
-**Source of truth:** deterministic Roslyn evidence. SQLite FTS5 and optional local vectors only enrich or rerank evidence. The verifier is the only authority that can set `IsSafe`.
+### Core Responsibilities
 
-## Prerequisites
+| Layer | Responsibility |
+|---|---|
+| React + Vite | Project input, pipeline status, issue list, code comparison, and approve/reject review UI |
+| ASP.NET Core | Coordinates the end-to-end pipeline and exposes REST endpoints |
+| Roslyn Analyzer | Loads the `.NET` project and detects legacy coding patterns from syntax trees |
+| RAG Layer | Retrieves source, symbols, nearby tests, lexical matches, and optional vector context |
+| LLM Layer | Generates structured modernization suggestions using Gemini |
+| Test Generator | Creates focused tests for detected issues |
+| Verifier | Builds and runs tests; this is the authority for whether a suggestion is safe |
+| SQLite | Stores local retrieval data and accepted refactoring history by default |
 
-- .NET 10 SDK.
-- Node.js and npm for the frontend.
-- Python 3.11+ for the optional Python RAG worker and evaluation tools.
-- Docker Desktop only if using the Compose workflow.
+**Important design principle:** AI generation proposes a change; verification determines whether it is safe. A suggestion is never trusted only because a model produced it.
 
-No PostgreSQL server is required.
+## Key Features
 
-## Configuration
+- **Roslyn-based analysis:** understands C# syntax and project structure instead of relying only on text search.
+- **Evidence-first retrieval:** preserves file paths, line numbers, symbols, source content, and stable evidence IDs.
+- **AI-assisted modernization:** Gemini generates structured suggestions, explanations, and tests grounded in repository evidence.
+- **Automated test generation:** creates tests connected to the detected issue.
+- **Before/after review:** shows the original code and proposed refactoring side by side.
+- **Verification gate:** builds and runs tests before marking a suggestion safe.
+- **Local-first operation:** SQLite and FTS5 are the default, so PostgreSQL and hosted infrastructure are not required.
 
-Copy the example configuration to a local environment file. Do not commit secrets.
+## Technology Stack
+
+- .NET 10 and ASP.NET Core
+- Roslyn / MSBuild Workspace
+- React 19, TypeScript, Vite, and Tailwind CSS
+- SQLite and SQLite FTS5
+- Python 3.11+ for the optional RAG worker and evaluation tools
+- Gemini API for optional suggestion and embedding generation
+- xUnit and `dotnet test` for verification
+
+## Quick Start
+
+### Prerequisites
+
+- .NET 10 SDK
+- Node.js and npm
+- Python 3.11+ for the optional RAG tools
+- Docker Desktop only for the container workflow
+
+### 1. Configure Gemini
+
+From the repository root:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Important settings:
+Add your Gemini key to `.env`. It is required for the complete AI modernization workflow:
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `RAG_STORE_MODE` | `sqlite` | Local SQLite default; `lancedb` is optional local enrichment. |
-| `RAG_SQLITE_PATH` | `./.legacy_rag.sqlite3` | SQLite database location. |
-| `RAG_EMBEDDING_PROVIDER` | `none` | Lexical-only default. Optional `gemini` enables semantic embeddings. |
-| `RAG_EMBEDDING_MODEL` | `gemini-embedding-001` | Embedding model metadata. |
-| `RAG_INDEX_VERSION` | `1` | Index compatibility version. |
-| `GEMINI_API_KEY` | empty | Optional generation and Gemini embedding key. |
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+```
 
-The default path is SQLite plus FTS5 and works without an API key. LanceDB requires the open-source `lancedb` Python package and a real embedding provider.
+Without a key, Roslyn analysis can still run, but AI suggestions and generated tests are not available. Results remain review-only and cannot be marked safe.
 
-## Run Locally
-
-From the repository root:
+### 2. Start the Backend
 
 ```powershell
 dotnet restore
 dotnet build backend/src/LegacyModernization.Api/LegacyModernization.Api.csproj
-```
-
-Start the API:
-
-```powershell
 dotnet run --project backend/src/LegacyModernization.Api/LegacyModernization.Api.csproj --launch-profile http
 ```
 
-The API runs at `http://localhost:5198`. OpenAPI/Scalar is available from the API application.
+The API runs at `http://localhost:5198`. Interactive API documentation is available through Scalar.
 
-In a second terminal, install and start the frontend:
+### 3. Start the Frontend
+
+In a second terminal:
 
 ```powershell
 Set-Location frontend
@@ -102,27 +116,29 @@ npm install
 npm run dev
 ```
 
-The frontend runs at `http://localhost:5173`.
+Open `http://localhost:5173` and enter a project path such as:
 
-## Docker
-
-Docker Desktop is required for this path:
-
-```powershell
-docker compose up --build
+```text
+samples/LegacySampleProject/LegacySampleProject.csproj
 ```
 
-The Compose services expose the frontend at `http://localhost:5173` and backend at `http://localhost:5198`.
+To enable verification, also provide:
 
-## API Workflow
+```text
+samples/LegacySampleProject.Tests/LegacySampleProject.Tests.csproj
+```
 
-1. `POST /api/analysis` analyzes a project with Roslyn.
-2. `POST /api/suggestions` retrieves evidence and generates suggestions when a model is configured.
-3. `POST /api/testgeneration` generates tests when a model is configured.
-4. `POST /api/verification` runs tests against a test project.
-5. `POST /api/pipeline` runs analysis, retrieval, generation, test generation, and verification together.
+## API Surface
 
-Example pipeline request:
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/analysis` | Analyze a project with Roslyn |
+| `POST /api/suggestions` | Retrieve evidence and generate suggestions |
+| `POST /api/testgeneration` | Generate tests for findings |
+| `POST /api/verification` | Verify a test project |
+| `POST /api/pipeline` | Run the complete workflow |
+
+Example complete-pipeline request:
 
 ```json
 {
@@ -131,20 +147,36 @@ Example pipeline request:
 }
 ```
 
-A suggestion is never safe merely because a model generated it. `IsSafe` becomes true only when the verifier confirms the required original and refactored behavior checks.
+## Configuration
 
-## Tests And Evaluation
+| Variable | Default | Purpose |
+|---|---|---|
+| `RAG_STORE_MODE` | `sqlite` | Selects the local retrieval store |
+| `RAG_SQLITE_PATH` | `./.legacy_rag.sqlite3` | SQLite database location |
+| `RAG_EMBEDDING_PROVIDER` | `none` | Keeps the default path lexical and local |
+| `RAG_EMBEDDING_MODEL` | `gemini-embedding-001` | Embedding model metadata |
+| `RAG_INDEX_VERSION` | `1` | Retrieval index compatibility version |
+| `GEMINI_API_KEY` | required for full workflow | Enables Gemini suggestions and generated tests |
 
-Backend RAG tests:
+## Validation
+
+Run the backend RAG tests:
 
 ```powershell
 dotnet test backend/tests/LegacyModernization.Rag.Tests/LegacyModernization.Rag.Tests.csproj
 ```
 
-Python tests:
+Run the Python tests:
 
 ```powershell
 python -m pytest python/tests -q
+```
+
+Build the frontend:
+
+```powershell
+Set-Location frontend
+npm run build
 ```
 
 Run the local retrieval evaluation:
@@ -156,33 +188,45 @@ python python/evaluate_rag.py `
   --output reports/rag-eval-report.json
 ```
 
-The report includes Recall@10, MRR, retrieval mode, embedding model, index version, and elapsed time.
-
-## Project Layout
+## Project Structure
 
 ```text
 backend/src/
-  LegacyModernization.Analyzer/       Roslyn analysis and rules
-  LegacyModernization.Api/            ASP.NET Core API
-  LegacyModernization.Core/           Shared contracts and models
-  LegacyModernization.LLM/            Optional structured generation
-  LegacyModernization.Rag/            SQLite, FTS5, Roslyn retrieval, indexing
-  LegacyModernization.Verifier/       Build/test/behavior verification
-frontend/                              React + Vite UI
-python/                                Optional local RAG worker and evaluation
-samples/                               Legacy and refactored sample projects
-docs/rag-implementation-plan.md       Architecture and delivery plan
-reports/                               Evaluation and analysis output
+  LegacyModernization.Analyzer/       Roslyn analysis and modernization rules
+  LegacyModernization.Api/            ASP.NET Core API and pipeline orchestration
+  LegacyModernization.Core/           Shared models and contracts
+  LegacyModernization.LLM/            Optional structured Gemini integration
+  LegacyModernization.Rag/            Retrieval, SQLite, FTS5, and indexing
+  LegacyModernization.TestGenerator/  Generated test creation
+  LegacyModernization.Verifier/       Build, test, and behavior verification
+frontend/                              React + Vite review interface
+python/                                Optional RAG worker and evaluation tools
+samples/                               Legacy and refactored demonstration projects
+reports/                               Analysis and evaluation output
+docs/                                  Detailed RAG implementation plan
 ```
 
-## Open-Source And Cost Boundary
+## Interview Summary
 
-The default development path uses SQLite, FTS5, Roslyn, .NET, Python, React, Vite, and optional LanceDB OSS. It does not need hosted PostgreSQL, cloud deployment, hosted storage, hosted networking, or paid embedding/model services.
+> Legacy Modernization Copilot is an evidence-first .NET modernization assistant. Roslyn identifies risky legacy patterns, the retrieval layer supplies repository context, Gemini proposes a refactoring, and generated tests plus a verifier provide the safety gate. The result is a reviewable change rather than an unverified AI rewrite.
 
-Optional Gemini integration may incur provider charges. It is not required for local analysis, deterministic retrieval, indexing, testing, or verification.
+## Design Trade-offs
 
-## Known Notices
+- **Local-first over cloud-first:** reduces setup, cost, and data movement for an initial developer workflow.
+- **Deterministic evidence over semantic search alone:** keeps suggestions grounded in the target repository.
+- **Human review over automatic patching:** the application displays proposed changes and does not silently modify source code.
+- **Verification over model confidence:** only test results can establish that a suggestion is safe.
 
-Package restore currently reports advisories for transitive `SQLitePCLRaw.lib.e_sqlite3` and `Microsoft.OpenApi` dependencies. These should be reviewed and upgraded when compatible fixed versions are available.
+## Docker
 
-See [docs/rag-implementation-plan.md](docs/rag-implementation-plan.md) for the detailed architecture, phases, schema, guardrails, and evaluation plan.
+Docker Desktop is optional:
+
+```powershell
+docker compose up --build
+```
+
+The frontend is exposed at `http://localhost:5173` and the backend at `http://localhost:5198`.
+
+## Further Reading
+
+See [docs/rag-implementation-plan.md](docs/rag-implementation-plan.md) for the detailed retrieval architecture, contracts, guardrails, and evaluation plan.

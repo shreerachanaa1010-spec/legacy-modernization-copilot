@@ -1,5 +1,6 @@
 using LegacyModernization.Analyzer.Services;
 using LegacyModernization.Api.Models;
+using LegacyModernization.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LegacyModernization.Api.Controllers;
@@ -24,10 +25,10 @@ public class AnalysisController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.ProjectPath))
             return BadRequest("ProjectPath is required.");
 
-        var fullPath = Path.GetFullPath(request.ProjectPath);
+        var fullPath = ProjectPathResolver.Resolve(request.ProjectPath);
 
-        if (!System.IO.File.Exists(fullPath))
-            return NotFound($"Project file not found: {fullPath}");
+        if (fullPath is null)
+            return NotFound($"No unique .csproj file was found for project path: {request.ProjectPath}");
 
         var result = await _analyzer.AnalyzeAsync(fullPath);
         return Ok(result);

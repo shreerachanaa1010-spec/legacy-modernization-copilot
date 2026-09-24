@@ -59,13 +59,23 @@ public class PipelineController : ControllerBase
         var projectRoot = Path.GetDirectoryName(projectFullPath)!;
 
         // Step 2: Generate suggestions (parallel for speed)
+        using var suggestionLimiter = new SemaphoreSlim(2);
         var suggestionTasks = analysis.Issues.Select(async issue =>
         {
+            await suggestionLimiter.WaitAsync(HttpContext.RequestAborted);
+            RetrievedContext context;
             try
             {
-                return await _llmService.GenerateSuggestionAsync(
-                    issue,
-                    await _retriever.RetrieveAsync(issue, projectRoot));
+                context = await _retriever.RetrieveAsync(issue, projectRoot);
+            }
+            catch
+            {
+                context = new RetrievedContext { Documents = [] };
+            }
+
+            try
+            {
+                return await _llmService.GenerateSuggestionAsync(issue, context);
             }
             catch (Exception ex)
             {
@@ -81,29 +91,32 @@ public class PipelineController : ControllerBase
                     IsSafe = false
                 };
             }
+            finally
+            {
+                suggestionLimiter.Release();
+            }
         });
         var suggestions = (await Task.WhenAll(suggestionTasks)).ToList();
 
         // Step 3: Generate tests for each issue
-        var generatedTests = new List<GeneratedTest>();
-        foreach (var issue in analysis.Issues)
+        var testTasks = analysis.Issues.Select(async issue =>
         {
             try
             {
-                var test = await _testGenerator.GenerateTestAsync(issue);
-                generatedTests.Add(test);
+                return await _testGenerator.GenerateTestAsync(issue);
             }
             catch (Exception ex)
             {
-                generatedTests.Add(new GeneratedTest
+                return new GeneratedTest
                 {
                     TestClassName = $"{issue.RuleId}GeneratedTests",
                     TestCode = "",
                     TargetFile = issue.FilePath,
                     Explanation = $"Test generation error: {ex.Message}"
-                });
+                };
             }
-        }
+        });
+        var generatedTests = (await Task.WhenAll(testTasks)).ToList();
 
         // Step 4: Verify (if test project provided)
         VerificationResult? verification = null;

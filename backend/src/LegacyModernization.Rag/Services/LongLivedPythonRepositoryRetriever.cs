@@ -52,7 +52,7 @@ public sealed class LongLivedPythonRepositoryRetriever : IRepositoryRetriever, I
         {
             await EnsureProcessAsync(scriptPath, projectRoot, cancellationToken);
             using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutSource.CancelAfter(TimeSpan.FromSeconds(GetIntSetting("RAG_PYTHON_TIMEOUT_SECONDS", 30)));
+            timeoutSource.CancelAfter(TimeSpan.FromSeconds(GetIntSetting("RAG_PYTHON_TIMEOUT_SECONDS", 5)));
 
             await _writer!.WriteLineAsync(JsonSerializer.Serialize(new { query, limit = 5 }));
             await _writer.FlushAsync(timeoutSource.Token);

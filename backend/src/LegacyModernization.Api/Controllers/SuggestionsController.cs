@@ -43,13 +43,23 @@ public class SuggestionsController : ControllerBase
         var analysis = await _analyzer.AnalyzeAsync(fullPath);
         var projectRoot = Path.GetDirectoryName(fullPath)!;
 
+        using var suggestionLimiter = new SemaphoreSlim(2);
         var suggestionTasks = analysis.Issues.Select(async issue =>
         {
+            await suggestionLimiter.WaitAsync(HttpContext.RequestAborted);
+            RetrievedContext context;
             try
             {
-                return await _llmService.GenerateSuggestionAsync(
-                    issue,
-                    await _retriever.RetrieveAsync(issue, projectRoot));
+                context = await _retriever.RetrieveAsync(issue, projectRoot);
+            }
+            catch
+            {
+                context = new RetrievedContext { Documents = [] };
+            }
+
+            try
+            {
+                return await _llmService.GenerateSuggestionAsync(issue, context);
             }
             catch (Exception ex)
             {
@@ -64,6 +74,10 @@ public class SuggestionsController : ControllerBase
                     GenerationStatus = "generation-error",
                     IsSafe = false
                 };
+            }
+            finally
+            {
+                suggestionLimiter.Release();
             }
         });
         var suggestions = (await Task.WhenAll(suggestionTasks)).ToList();
