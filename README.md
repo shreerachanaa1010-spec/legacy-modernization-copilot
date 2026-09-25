@@ -107,7 +107,7 @@ All rule implementations live in `backend/src/LegacyModernization.Analyzer/Rules
 - Roslyn / MSBuild Workspace
 - React 19, TypeScript, Vite, and Tailwind CSS
 - SQLite and SQLite FTS5
-- Python 3.11+ for the optional RAG worker and evaluation tools
+- Python 3.11+ for the retrieval worker and evaluation tools
 - Gemini API for optional suggestion and embedding generation
 - xUnit and `dotnet test` for verification
 
@@ -117,7 +117,7 @@ All rule implementations live in `backend/src/LegacyModernization.Analyzer/Rules
 
 - .NET 10 SDK
 - Node.js and npm
-- Python 3.11+ for the optional RAG tools
+- Python 3.11+ for the retrieval tools
 - Docker Desktop only for the container workflow
 
 ### 1. Configure Gemini
@@ -265,15 +265,11 @@ tools/AnalyzerHost/                   Console host that runs analysis and writes
 generated-tests/                      Output location for generated test files
 <!-- AI-GENERATED-END | user:gt130819 | date:2026-09-25 -->
 frontend/                              React + Vite review interface
-python/                                Optional RAG worker and evaluation tools
+python/                                Retrieval worker and evaluation tools
 samples/                               Legacy and refactored demonstration projects
 reports/                               Analysis and evaluation output
 docs/                                  Detailed RAG implementation plan
 ```
-
-## Interview Summary
-
-> Legacy Modernization Copilot is an evidence-first .NET modernization assistant. Roslyn identifies risky legacy patterns, the retrieval layer supplies repository context, Gemini proposes a refactoring, and generated tests plus a verifier provide the safety gate. The result is a reviewable change rather than an unverified AI rewrite.
 
 ## Design Trade-offs
 
