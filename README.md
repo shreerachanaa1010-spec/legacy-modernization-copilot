@@ -51,15 +51,55 @@ flowchart LR
 
 **Important design principle:** AI generation proposes a change; verification determines whether it is safe. A suggestion is never trusted only because a model produced it.
 
-## Key Features
+<!-- AI-GENERATED-START | user:gt130819 | date:2026-09-25 | model:Kimi K3 -->
+### Retrieval Flow
 
-- **Roslyn-based analysis:** understands C# syntax and project structure instead of relying only on text search.
-- **Evidence-first retrieval:** preserves file paths, line numbers, symbols, source content, and stable evidence IDs.
-- **AI-assisted modernization:** Gemini generates structured suggestions, explanations, and tests grounded in repository evidence.
-- **Automated test generation:** creates tests connected to the detected issue.
-- **Before/after review:** shows the original code and proposed refactoring side by side.
-- **Verification gate:** builds and runs tests before marking a suggestion safe.
-- **Local-first operation:** SQLite and FTS5 are the default, so PostgreSQL and hosted infrastructure are not required.
+Every issue found by the analyzer goes through a hybrid retrieval pipeline before anything is sent to the LLM. A deterministic Roslyn retriever always runs; an optional long-lived Python worker adds vector/lexical enrichment when available.
+
+```mermaid
+flowchart TD
+  Analyzer[Roslyn Analyzer] --> Issue[AnalysisIssue<br/>rule violation]
+  Issue --> Hybrid[HybridRepositoryRetriever]
+
+  Hybrid --> Symbol[SymbolAwareRepositoryRetriever<br/>deterministic · Roslyn]
+  Hybrid --> Python[LongLivedPythonRepositoryRetriever<br/>optional enrichment]
+
+  Symbol --> FS[FileSystemRepositoryRetriever<br/>primary source + nearby files]
+  Symbol --> Symbols[Containing class/method symbol<br/>+ related evidence]
+
+  Python --> Agent[agentic_rag.py<br/>long-lived Python server process]
+  Agent --> Stores[(SQLite FTS5 /<br/>pgvector / LanceDB<br/>+ optional Gemini embeddings)]
+  Python -. fallback on error or missing script .-> FS
+
+  Symbol --> Merge[Merge and deduplicate<br/>by file, lines, and content]
+  Python --> Merge
+
+  Merge --> Context[RetrievedContext<br/>combined evidence]
+  Context --> LLM[Gemini LLM]
+  LLM --> Suggestion[Modernization suggestion<br/>+ explanation + generated test]
+```
+
+Key behaviors of the retrieval layer:
+
+- `HybridRepositoryRetriever` runs both retrievers for every issue and merges the results, deduplicating by file path, line range, and content.
+- `SymbolAwareRepositoryRetriever` wraps `FileSystemRepositoryRetriever` and enriches the primary source with the containing class/method symbol and related evidence discovered through Roslyn syntax trees.
+- `LongLivedPythonRepositoryRetriever` keeps `python/agentic_rag.py --server` alive across requests and falls back to `FileSystemRepositoryRetriever` if Python is unavailable, times out, or returns an error — so retrieval never fails the pipeline.
+<!-- AI-GENERATED-END | user:gt130819 | date:2026-09-25 -->
+
+## Modernization Rules (LMC001-LMC006)
+
+The Roslyn analyzer includes six deterministic rules, each covered by unit tests in `backend/src/LegacyModernization.Analyzer.Tests/`:
+
+| Rule ID | Rule | Detects |
+|---|---|---|
+| `LMC001` | `SyncOverAsyncRule` | Blocking on async code (`.Result`, `.Wait()`, `GetAwaiter().GetResult()`) |
+| `LMC002` | `WebClientRule` | Legacy `WebClient` usage instead of `HttpClient` |
+| `LMC003` | `ConfigureAwaitRule` | Awaited calls missing `ConfigureAwait(false)` in library code |
+| `LMC004` | `DisposePatternRule` | `IDisposable` resources not wrapped in `using` declarations |
+| `LMC005` | `HttpClientInstantiationRule` | Direct `new HttpClient()` instead of `IHttpClientFactory` |
+| `LMC006` | `DateTimeNowRule` | `DateTime.Now` instead of `DateTime.UtcNow` |
+
+All rule implementations live in `backend/src/LegacyModernization.Analyzer/Rules/` and run through `PatternRuleEngine`.
 
 ## Technology Stack
 
@@ -149,19 +189,37 @@ Example complete-pipeline request:
 
 ## Configuration
 
+These variables are read from the environment or the local `.env` file loaded at startup.
+
+<!-- AI-GENERATED-START | user:gt130819 | date:2026-09-25 | model:Kimi K3 -->
 | Variable | Default | Purpose |
 |---|---|---|
-| `RAG_STORE_MODE` | `sqlite` | Selects the local retrieval store |
+| `GEMINI_API_KEY` | required for full workflow | Enables Gemini suggestions and generated tests |
+| `GEMINI_MODEL` | `gemini-3.8-flash` | Gemini model used for suggestions and test generation |
+| `GEMINI_TIMEOUT_SECONDS` | `20` (clamped 5-300) | Timeout for Gemini API calls |
+| `RAG_STORE_MODE` | `sqlite` | Retrieval store: `sqlite`, `pgvector`, `lancedb`, or `allow-fallback` |
 | `RAG_SQLITE_PATH` | `./.legacy_rag.sqlite3` | SQLite database location |
+| `RAG_LANCEDB_PATH` | `./.lancedb` | LanceDB database location (when `RAG_STORE_MODE=lancedb`) |
 | `RAG_EMBEDDING_PROVIDER` | `none` | Keeps the default path lexical and local |
 | `RAG_EMBEDDING_MODEL` | `gemini-embedding-001` | Embedding model metadata |
+| `RAG_EMBEDDING_DIM` | `768` | Embedding vector dimension |
 | `RAG_INDEX_VERSION` | `1` | Retrieval index compatibility version |
-| `GEMINI_API_KEY` | required for full workflow | Enables Gemini suggestions and generated tests |
+| `PYTHON` | `python` | Python executable used by the long-lived retrieval worker |
+| `RAG_PYTHON_TIMEOUT_SECONDS` | `5` | Per-query timeout for the Python retrieval worker |
+| `RAG_PYTHON_MAX_OUTPUT_BYTES` | `1048576` | Maximum response size accepted from the Python worker |
+<!-- AI-GENERATED-END | user:gt130819 | date:2026-09-25 -->
 
 ## Validation
 
-Run the backend RAG tests:
+<!-- AI-GENERATED-START | user:gt130819 | date:2026-09-25 | model:Kimi K3 -->
+Run the analyzer rule tests:
 
+```powershell
+dotnet test backend/src/LegacyModernization.Analyzer.Tests/LegacyModernization.Analyzer.Tests.csproj
+```
+<!-- AI-GENERATED-END | user:gt130819 | date:2026-09-25 -->
+
+Run the backend RAG tests:
 ```powershell
 dotnet test backend/tests/LegacyModernization.Rag.Tests/LegacyModernization.Rag.Tests.csproj
 ```
@@ -199,6 +257,13 @@ backend/src/
   LegacyModernization.Rag/            Retrieval, SQLite, FTS5, and indexing
   LegacyModernization.TestGenerator/  Generated test creation
   LegacyModernization.Verifier/       Build, test, and behavior verification
+<!-- AI-GENERATED-START | user:gt130819 | date:2026-09-25 | model:Kimi K3 -->
+  LegacyModernization.Analyzer.Tests/ Unit tests for the six modernization rules
+backend/tests/
+  LegacyModernization.Rag.Tests/      Retrieval, indexing, and store tests
+tools/AnalyzerHost/                   Console host that runs analysis and writes reports/
+generated-tests/                      Output location for generated test files
+<!-- AI-GENERATED-END | user:gt130819 | date:2026-09-25 -->
 frontend/                              React + Vite review interface
 python/                                Optional RAG worker and evaluation tools
 samples/                               Legacy and refactored demonstration projects
