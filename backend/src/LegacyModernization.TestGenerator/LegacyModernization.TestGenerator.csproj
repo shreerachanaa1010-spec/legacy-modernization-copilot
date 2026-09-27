@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LegacyModernization.Core\LegacyModernization.Core.csproj" />
+    <ProjectReference Include="..\LegacyModernization.Rag\LegacyModernization.Rag.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="appsettings.json">

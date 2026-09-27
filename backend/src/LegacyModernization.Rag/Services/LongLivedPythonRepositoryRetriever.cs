@@ -8,7 +8,6 @@ namespace LegacyModernization.Rag.Services;
 public sealed class LongLivedPythonRepositoryRetriever : IRepositoryRetriever, IDisposable
 {
     private const int DefaultMaxOutputBytes = 1_048_576;
-    private readonly FileSystemRepositoryRetriever _fallback = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
     private Process? _process;
     private StreamWriter? _writer;
@@ -23,21 +22,35 @@ public sealed class LongLivedPythonRepositoryRetriever : IRepositoryRetriever, I
         var scriptPath = ResolveScriptPath(root);
         if (scriptPath is null)
         {
-            return await _fallback.RetrieveAsync(issue, root, cancellationToken);
+            throw new InvalidOperationException("Python RAG retrieval is required, but python/agentic_rag.py was not found.");
         }
 
         try
         {
             var payload = await QueryAsync(scriptPath, root, BuildQuery(issue), cancellationToken);
             var documents = ParseEvidence(payload);
-            return documents.Count == 0
-                ? await _fallback.RetrieveAsync(issue, root, cancellationToken)
-                : new RetrievedContext { Documents = documents };
+            if (documents.Count == 0 || documents.All(document =>
+                    string.IsNullOrWhiteSpace(document.EvidenceId) || string.IsNullOrWhiteSpace(document.Content)))
+            {
+                throw new InvalidOperationException("Python RAG returned no usable evidence for this issue.");
+            }
+
+            return new RetrievedContext { Documents = documents };
         }
-        catch
+        catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
             StopProcess();
-            return await _fallback.RetrieveAsync(issue, root, cancellationToken);
+            throw new InvalidOperationException("Required Python RAG retrieval timed out.", exception);
+        }
+        catch (OperationCanceledException)
+        {
+            StopProcess();
+            throw;
+        }
+        catch (Exception exception)
+        {
+            StopProcess();
+            throw new InvalidOperationException("Required Python RAG retrieval failed.", exception);
         }
     }
 
@@ -83,7 +96,7 @@ public sealed class LongLivedPythonRepositoryRetriever : IRepositoryRetriever, I
             return;
         }
 
-        StopProcess();
+        StopProcessCore();
         var process = new Process
         {
             StartInfo = new ProcessStartInfo
@@ -113,7 +126,7 @@ public sealed class LongLivedPythonRepositoryRetriever : IRepositoryRetriever, I
         _ = process.StandardError.ReadToEndAsync(cancellationToken);
     }
 
-    private static List<RetrievedDocument> ParseEvidence(JsonDocument payload)
+    internal static List<RetrievedDocument> ParseEvidence(JsonDocument payload)
     {
         if (!payload.RootElement.TryGetProperty("evidence", out var evidence) || evidence.ValueKind != JsonValueKind.Array)
         {
@@ -127,10 +140,16 @@ public sealed class LongLivedPythonRepositoryRetriever : IRepositoryRetriever, I
             EvidenceId = item.TryGetProperty("evidence_id", out var evidenceId) ? evidenceId.GetString() ?? "" : "",
             FilePath = item.TryGetProperty("source_path", out var path) ? path.GetString() ?? "" : "",
             Content = item.TryGetProperty("content", out var content) ? content.GetString() ?? "" : "",
-            Score = item.TryGetProperty("score", out var score) && score.TryGetDouble(out var value) ? value : null,
+                Score = item.TryGetProperty("score", out var score) &&
+                    score.ValueKind == JsonValueKind.Number &&
+                    score.TryGetDouble(out var value) ? value : null,
             Symbol = item.TryGetProperty("symbol", out var symbol) ? symbol.GetString() ?? "" : "",
-            LineStart = item.TryGetProperty("line_start", out var start) && start.TryGetInt32(out var startValue) ? startValue : null,
-            LineEnd = item.TryGetProperty("line_end", out var end) && end.TryGetInt32(out var endValue) ? endValue : null
+            LineStart = item.TryGetProperty("line_start", out var start) &&
+                        start.ValueKind == JsonValueKind.Number &&
+                        start.TryGetInt32(out var startValue) ? startValue : null,
+            LineEnd = item.TryGetProperty("line_end", out var end) &&
+                      end.ValueKind == JsonValueKind.Number &&
+                      end.TryGetInt32(out var endValue) ? endValue : null
         }).Where(document => !string.IsNullOrWhiteSpace(document.FilePath) || !string.IsNullOrWhiteSpace(document.Content)).ToList();
     }
 
@@ -157,6 +176,19 @@ public sealed class LongLivedPythonRepositoryRetriever : IRepositoryRetriever, I
         int.TryParse(Environment.GetEnvironmentVariable(name), out var value) ? Math.Max(1, value) : fallback;
 
     private void StopProcess()
+    {
+        _gate.Wait();
+        try
+        {
+            StopProcessCore();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private void StopProcessCore()
     {
         if (_process is null)
         {

@@ -23,6 +23,11 @@ public sealed class HybridRepositoryRetriever : IRepositoryRetriever
     {
         var deterministic = await _deterministic.RetrieveAsync(issue, projectRoot, cancellationToken);
         var enrichment = await _enrichment.RetrieveAsync(issue, projectRoot, cancellationToken);
+        if (!enrichment.HasRequiredRagEvidence)
+        {
+            throw new InvalidOperationException("Required Python RAG evidence is missing from the retrieval result.");
+        }
+
         var documents = deterministic.Documents
             .Concat(enrichment.Documents)
             .GroupBy(document => new

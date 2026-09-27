@@ -1,6 +1,7 @@
 using LegacyModernization.Core.Models;
 using LegacyModernization.Rag.Models;
 using LegacyModernization.Rag.Services;
+using System.Text.Json;
 using Xunit;
 
 namespace LegacyModernization.Rag.Tests;
@@ -58,6 +59,46 @@ public sealed class FileSystemRepositoryRetrieverTests
         Directory.Delete(root, recursive: true);
         File.Delete(outsidePath);
     }
+
+    [Fact]
+    public async Task PythonRetriever_ThrowsWhenRagScriptIsUnavailable()
+    {
+        var root = CreateTemporaryRepository();
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new LongLivedPythonRepositoryRetriever().RetrieveAsync(
+                new AnalysisIssue { FilePath = Path.Combine(root, "CustomerService.cs") },
+                root));
+
+        Assert.Contains("agentic_rag.py was not found", exception.Message, StringComparison.Ordinal);
+        Directory.Delete(root, recursive: true);
+    }
+
+        [Fact]
+        public void PythonRetriever_ParsesNullOptionalEvidenceFields()
+        {
+                using var payload = JsonDocument.Parse("""
+                        {
+                            "evidence": [
+                                {
+                                    "evidence_id": "ev-1",
+                                    "source_path": "src/Service.cs",
+                                    "content": "class Service {}",
+                                    "score": null,
+                                    "line_start": null,
+                                    "line_end": null
+                                }
+                            ]
+                        }
+                        """);
+
+                var evidence = Assert.Single(LongLivedPythonRepositoryRetriever.ParseEvidence(payload));
+
+                Assert.Equal("ev-1", evidence.EvidenceId);
+                Assert.Null(evidence.Score);
+                Assert.Null(evidence.LineStart);
+                Assert.Null(evidence.LineEnd);
+        }
 
     [Fact]
     public async Task SqliteVectorStore_PersistsAndRanksDocuments()
@@ -132,6 +173,33 @@ public sealed class FileSystemRepositoryRetrieverTests
         command.CommandText = "SELECT verification_status FROM accepted_refactorings WHERE finding_fingerprint = 'finding-1'";
         Assert.Equal("BOTH_PASS", (string?)await command.ExecuteScalarAsync());
         await connection.CloseAsync();
+
+        Directory.Delete(root, recursive: true);
+    }
+
+    [Fact]
+    public async Task SqliteVectorStore_PersistsReviewDecision()
+    {
+        var root = CreateTemporaryRepository();
+        var store = new SqliteVectorStore(Path.Combine(root, "rag.db"));
+        var decision = new ReviewDecision
+        {
+            FindingFingerprint = "finding-2",
+            Decision = "approved",
+            FilePath = Path.Combine(root, "Service.cs"),
+            OriginalCode = "client.Result",
+            RefactoredCode = "await client",
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+
+        await store.SaveDecisionAsync(decision);
+        var persisted = await store.GetDecisionAsync("finding-2");
+
+        Assert.NotNull(persisted);
+        Assert.Equal("approved", persisted.Decision);
+        Assert.Equal(decision.FilePath, persisted.FilePath);
+        Assert.Equal(decision.OriginalCode, persisted.OriginalCode);
+        Assert.Equal(decision.RefactoredCode, persisted.RefactoredCode);
 
         Directory.Delete(root, recursive: true);
     }

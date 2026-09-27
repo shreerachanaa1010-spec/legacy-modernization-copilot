@@ -8,4 +8,7 @@
     <Project Path="src/LegacyModernization.TestGenerator/LegacyModernization.TestGenerator.csproj" />
     <Project Path="src/LegacyModernization.Verifier/LegacyModernization.Verifier.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LegacyModernization.Api.Tests/LegacyModernization.Api.Tests.csproj" />
+  </Folder>
 </Solution>

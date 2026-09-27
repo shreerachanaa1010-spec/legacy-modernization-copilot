@@ -11,4 +11,8 @@
     <ProjectReference Include="..\LegacyModernization.Analyzer\LegacyModernization.Analyzer.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="LegacyModernization.Rag.Tests" />
+  </ItemGroup>
+
 </Project>

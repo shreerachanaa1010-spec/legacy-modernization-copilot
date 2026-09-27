@@ -6,7 +6,7 @@ using Microsoft.Data.Sqlite;
 
 namespace LegacyModernization.Rag.Services;
 
-public sealed class SqliteVectorStore : IVectorStore, IAcceptedRefactoringStore
+public sealed class SqliteVectorStore : IVectorStore, IAcceptedRefactoringStore, IReviewDecisionStore
 {
     private readonly string _connectionString;
 
@@ -175,6 +175,57 @@ public sealed class SqliteVectorStore : IVectorStore, IAcceptedRefactoringStore
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task<ReviewDecision?> GetDecisionAsync(
+        string findingFingerprint,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = OpenConnection();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT decision, file_path, original_code, refactored_code, updated_at FROM review_decisions WHERE finding_fingerprint = $fingerprint";
+        command.Parameters.AddWithValue("$fingerprint", findingFingerprint);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        return new ReviewDecision
+        {
+            FindingFingerprint = findingFingerprint,
+            Decision = reader.GetString(0),
+            FilePath = reader.GetString(1),
+            OriginalCode = reader.GetString(2),
+            RefactoredCode = reader.GetString(3),
+            UpdatedAt = DateTimeOffset.Parse(reader.GetString(4))
+        };
+    }
+
+    public async Task SaveDecisionAsync(
+        ReviewDecision decision,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = OpenConnection();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO review_decisions(
+                finding_fingerprint, decision, file_path, original_code, refactored_code, updated_at)
+            VALUES($fingerprint, $decision, $path, $original, $refactored, $updated)
+            ON CONFLICT(finding_fingerprint) DO UPDATE SET
+                decision = excluded.decision,
+                file_path = excluded.file_path,
+                original_code = excluded.original_code,
+                refactored_code = excluded.refactored_code,
+                updated_at = excluded.updated_at
+            """;
+        command.Parameters.AddWithValue("$fingerprint", decision.FindingFingerprint);
+        command.Parameters.AddWithValue("$decision", decision.Decision);
+        command.Parameters.AddWithValue("$path", decision.FilePath);
+        command.Parameters.AddWithValue("$original", decision.OriginalCode);
+        command.Parameters.AddWithValue("$refactored", decision.RefactoredCode);
+        command.Parameters.AddWithValue("$updated", decision.UpdatedAt.ToString("O"));
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     public async Task PruneRepositoryAsync(
         string repositoryId,
         IReadOnlySet<string> activeSourcePaths,
@@ -247,6 +298,13 @@ public sealed class SqliteVectorStore : IVectorStore, IAcceptedRefactoringStore
                 refactored_code TEXT NOT NULL,
                 verification_status TEXT NOT NULL,
                 created_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS review_decisions(
+                finding_fingerprint TEXT PRIMARY KEY,
+                decision TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                original_code TEXT NOT NULL,
+                refactored_code TEXT NOT NULL,
+                updated_at TEXT NOT NULL);
             """;
         command.ExecuteNonQuery();
 

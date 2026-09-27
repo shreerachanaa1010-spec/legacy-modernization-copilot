@@ -30,7 +30,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       issue,
       suggestion: result.suggestions[i],
       generatedTest: result.generatedTests?.[i],
-      reviewStatus: result.suggestions[i]?.isSafe ? 'approved' as ReviewStatus : 'pending' as ReviewStatus,
+      reviewStatus: result.reviewDecisions?.[i] ?? 'pending',
     }));
     setItems(mapped);
   }

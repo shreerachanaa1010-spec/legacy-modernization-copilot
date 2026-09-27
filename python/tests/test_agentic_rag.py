@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from agentic_rag import AgenticRagPipeline, LocalVectorStore
+from agentic_rag import AgenticRagPipeline, LocalVectorStore, SQLiteRagStore
 from embedding_provider import FakeEmbeddingProvider
 
 
@@ -61,6 +61,59 @@ def test_agentic_pipeline_returns_evidence_and_summary(tmp_path: Path) -> None:
     assert output["answer"]
     assert output["evidence"]
     assert any("PaymentService" in item["source_path"] for item in output["evidence"])
+
+
+def test_retrieve_does_not_run_redundant_generation(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "PaymentService.cs").write_text(
+        "class PaymentService { public void ProcessRefund() { } }",
+        encoding="utf-8",
+    )
+
+    pipeline = AgenticRagPipeline(repo_root=str(repo_root))
+    pipeline.generator.generate = lambda _prompt: (_ for _ in ()).throw(AssertionError("generation should not run"))
+
+    output = pipeline.retrieve("PaymentService refund", limit=3)
+
+    assert output["evidence"]
+
+
+def test_indexing_skips_generated_directories(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    (repo_root / "src").mkdir(parents=True)
+    (repo_root / "bin").mkdir()
+    (repo_root / "src" / "PaymentService.cs").write_text("class PaymentService { }", encoding="utf-8")
+    (repo_root / "bin" / "Generated.cs").write_text("class Generated { }", encoding="utf-8")
+
+    pipeline = AgenticRagPipeline(repo_root=str(repo_root))
+
+    assert pipeline.store.search("PaymentService", limit=5)
+    assert not any(result.source_path.startswith("bin/") for result in pipeline.store.search("Generated", limit=5))
+
+
+def test_sqlite_store_does_not_reembed_unchanged_chunk(tmp_path: Path) -> None:
+    class CountingProvider:
+        model = "counting-test"
+        dimension = 2
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def embed(self, _text: str) -> list[float]:
+            self.calls += 1
+            return [1.0, 0.0]
+
+    store = SQLiteRagStore(repo_root=tmp_path)
+    provider = CountingProvider()
+    store.embedding_provider = provider
+    store.embedding_model = provider.model
+
+    store.add_document("unchanged content", "Service.cs")
+    store.add_document("unchanged content", "Service.cs")
+
+    assert provider.calls == 1
+    store._connection.close()
 
 
 def test_cli_returns_json_for_rag_query(tmp_path: Path) -> None:

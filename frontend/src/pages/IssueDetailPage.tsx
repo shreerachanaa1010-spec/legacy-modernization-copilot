@@ -1,6 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { ArrowLeft, FileCode2, MapPin, ThumbsUp, ThumbsDown, Undo2, Lightbulb, AlertTriangle, FlaskConical } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { saveReviewDecision } from '../api';
 import { StatusBadge, SeverityBadge } from '../components/Badges';
 import { DiffViewer } from '../components/DiffViewer';
 import { CodeBlock } from '../components/CodeBlock';
@@ -17,7 +19,10 @@ const ruleColors: Record<string, string> = {
 export function IssueDetailPage() {
   const { index } = useParams<{ index: string }>();
   const navigate = useNavigate();
-  const { items, setReviewStatus } = useStore();
+  const { items, projectPath, setReviewStatus } = useStore();
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+  const [reviewMessage, setReviewMessage] = useState('');
 
   const idx = parseInt(index || '0', 10);
   const item = items[idx];
@@ -38,6 +43,26 @@ export function IssueDetailPage() {
   const fileName = issue.filePath.split(/[/\\]/).pop() || issue.filePath;
 
   const actionBtnBase = 'flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200';
+
+  async function handleReviewDecision(status: 'approved' | 'rejected' | 'pending') {
+    if (!suggestion || !projectPath) {
+      setReviewError('A project path and generated suggestion are required.');
+      return;
+    }
+
+    setIsReviewing(true);
+    setReviewError('');
+    setReviewMessage('');
+    try {
+      const result = await saveReviewDecision(projectPath, issue, suggestion, status);
+      setReviewStatus(idx, status);
+      setReviewMessage(result.message);
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : 'Could not save review decision.');
+    } finally {
+      setIsReviewing(false);
+    }
+  }
 
   return (
     <div>
@@ -145,7 +170,8 @@ export function IssueDetailPage() {
             <h2 className="text-sm font-semibold text-slate-300 mb-4">Review Decision</h2>
             <div className="flex flex-wrap gap-3">
               <button
-                onClick={() => setReviewStatus(idx, 'approved')}
+                onClick={() => handleReviewDecision('approved')}
+                disabled={isReviewing || reviewStatus === 'approved'}
                 className={`${actionBtnBase} ${
                   reviewStatus === 'approved'
                     ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
@@ -153,10 +179,11 @@ export function IssueDetailPage() {
                 }`}
               >
                 <ThumbsUp className="w-4 h-4" />
-                {reviewStatus === 'approved' ? 'Approved' : 'Approve'}
+                {reviewStatus === 'approved' ? 'Accepted' : 'Accept & Apply'}
               </button>
               <button
-                onClick={() => setReviewStatus(idx, 'rejected')}
+                onClick={() => handleReviewDecision('rejected')}
+                disabled={isReviewing || reviewStatus === 'approved'}
                 className={`${actionBtnBase} ${
                   reviewStatus === 'rejected'
                     ? 'bg-red-500 text-white shadow-lg shadow-red-500/25'
@@ -168,7 +195,8 @@ export function IssueDetailPage() {
               </button>
               {reviewStatus !== 'pending' && (
                 <button
-                  onClick={() => setReviewStatus(idx, 'pending')}
+                  onClick={() => handleReviewDecision('pending')}
+                  disabled={isReviewing}
                   className={`${actionBtnBase} bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10`}
                 >
                   <Undo2 className="w-4 h-4" />
@@ -176,6 +204,8 @@ export function IssueDetailPage() {
                 </button>
               )}
             </div>
+            {reviewError && <p role="alert" className="mt-4 text-sm text-red-400">{reviewError}</p>}
+            {reviewMessage && <p role="status" className="mt-4 text-sm text-emerald-400">{reviewMessage}</p>}
           </div>
         </>
       )}

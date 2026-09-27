@@ -50,6 +50,7 @@ export interface PipelineResult {
   analysis: ProjectAnalysisResult;
   suggestions: RefactorSuggestion[];
   generatedTests: GeneratedTest[];
+  reviewDecisions?: ReviewStatus[];
   verification: VerificationResult | null;
 }
 

@@ -143,9 +143,20 @@ class SQLiteRagStore:
 
     def add_document(self, content: str, source_path: str, metadata: dict[str, Any] | None = None) -> None:
         payload = metadata or {}
-        embedding = self.embedding_provider.embed(content) if self.embedding_provider else None
         stored_embedding_model = self.embedding_model or "none"
         content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        existing = self._connection.execute(
+            """
+            SELECT 1 FROM chunks
+            WHERE repository_id = ? AND source_path = ? AND content_hash = ? AND embedding_model = ?
+            LIMIT 1
+            """,
+            (self.repository_id, source_path, content_hash, stored_embedding_model),
+        ).fetchone()
+        if existing is not None:
+            return
+
+        embedding = self.embedding_provider.embed(content) if self.embedding_provider else None
         chunk_id = hashlib.sha256(
             f"{self.repository_id}:{source_path}:{payload.get('chunk_index', 0)}:{content_hash}:{stored_embedding_model}".encode("utf-8")
         ).hexdigest()
@@ -306,6 +317,11 @@ class GeminiGenerator:
 
 
 class AgenticRagPipeline:
+    _EXCLUDED_DIRECTORIES = {
+        ".git", ".vs", ".venv", "venv", "node_modules", "bin", "obj",
+        "dist", "build", "coverage", "__pycache__",
+    }
+
     def __init__(
         self,
         repo_root: str,
@@ -359,24 +375,28 @@ class AgenticRagPipeline:
 
     def _index_repository(self) -> None:
         indexed_paths: set[str] = set()
-        for file_path in sorted(self.repo_root.rglob("*")):
-            if not file_path.is_file():
-                continue
-            if file_path.suffix.lower() not in {".cs", ".md", ".txt", ".json"}:
-                continue
-            relative_path = str(file_path.relative_to(self.repo_root))
-            indexed_paths.add(relative_path)
-            text = file_path.read_text(encoding="utf-8", errors="ignore")
-            for chunk_index, chunk in enumerate(self._chunk_text(text)):
-                self.store.add_document(
-                    chunk,
-                    relative_path,
-                    {
-                        "kind": "repo",
-                        "source_type": "related-test" if "test" in relative_path.lower() else "related-source",
-                        "chunk_index": chunk_index,
-                    },
-                )
+        for directory, child_directories, file_names in os.walk(self.repo_root):
+            child_directories[:] = sorted(
+                name for name in child_directories
+                if name.lower() not in self._EXCLUDED_DIRECTORIES
+            )
+            for file_name in sorted(file_names):
+                file_path = Path(directory) / file_name
+                if file_path.suffix.lower() not in {".cs", ".md", ".txt", ".json"}:
+                    continue
+                relative_path = str(file_path.relative_to(self.repo_root))
+                indexed_paths.add(relative_path)
+                text = file_path.read_text(encoding="utf-8", errors="ignore")
+                for chunk_index, chunk in enumerate(self._chunk_text(text)):
+                    self.store.add_document(
+                        chunk,
+                        relative_path,
+                        {
+                            "kind": "repo",
+                            "source_type": "related-test" if "test" in relative_path.lower() else "related-source",
+                            "chunk_index": chunk_index,
+                        },
+                    )
 
         if hasattr(self.store, "prune_missing"):
             self.store.prune_missing(indexed_paths)
@@ -396,7 +416,7 @@ class AgenticRagPipeline:
             start = max(start + self.chunk_size - self.chunk_overlap, end - self.chunk_overlap)
         return chunks
 
-    def run(self, query: str, limit: int = 5) -> dict[str, Any]:
+    def retrieve(self, query: str, limit: int = 5) -> dict[str, Any]:
         results = self.store.search(query, limit=limit)
         evidence = [
             {
@@ -410,6 +430,17 @@ class AgenticRagPipeline:
             }
             for item in results
         ]
+
+        return {
+            "evidence": evidence,
+            "retrievalMode": self.retrieval_mode,
+            "embeddingModel": self.embedding_model,
+            "indexVersion": self.index_version,
+        }
+
+    def run(self, query: str, limit: int = 5) -> dict[str, Any]:
+        result = self.retrieve(query, limit)
+        evidence = result["evidence"]
 
         prompt = f"""
 You are a senior modernization agent.
@@ -426,10 +457,7 @@ Evidence:
 
         return {
             "answer": answer,
-            "evidence": evidence,
-            "retrievalMode": self.retrieval_mode,
-            "embeddingModel": self.embedding_model,
-            "indexVersion": self.index_version,
+            **result,
         }
 
 
@@ -449,7 +477,7 @@ def main() -> int:
                 continue
             try:
                 request = json.loads(line)
-                result = pipeline.run(
+                result = pipeline.retrieve(
                     request["query"],
                     limit=int(request.get("limit", args.limit)),
                 )

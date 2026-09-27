@@ -1,6 +1,7 @@
 using LegacyModernization.Analyzer.Services;
 using LegacyModernization.Api.Models;
 using LegacyModernization.Core.Models;
+using LegacyModernization.Rag.Services;
 using LegacyModernization.TestGenerator.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,11 +13,16 @@ public class TestGenerationController : ControllerBase
 {
     private readonly IProjectAnalyzer _analyzer;
     private readonly ITestGenerator _testGenerator;
+    private readonly IRepositoryRetriever _retriever;
 
-    public TestGenerationController(IProjectAnalyzer analyzer, ITestGenerator testGenerator)
+    public TestGenerationController(
+        IProjectAnalyzer analyzer,
+        ITestGenerator testGenerator,
+        IRepositoryRetriever retriever)
     {
         _analyzer = analyzer;
         _testGenerator = testGenerator;
+        _retriever = retriever;
     }
 
     /// <summary>
@@ -34,6 +40,7 @@ public class TestGenerationController : ControllerBase
             return NotFound($"Project file not found: {fullPath}");
 
         var analysis = await _analyzer.AnalyzeAsync(fullPath);
+        var projectRoot = Path.GetDirectoryName(fullPath)!;
 
         var tests = new List<GeneratedTest>();
 
@@ -41,7 +48,13 @@ public class TestGenerationController : ControllerBase
         {
             try
             {
-                var test = await _testGenerator.GenerateTestAsync(issue);
+                var context = await _retriever.RetrieveAsync(issue, projectRoot, HttpContext.RequestAborted);
+                if (!context.HasRequiredRagEvidence)
+                {
+                    throw new InvalidOperationException("Required Python RAG evidence is missing.");
+                }
+
+                var test = await _testGenerator.GenerateTestAsync(issue, context);
                 tests.Add(test);
             }
             catch (Exception ex)

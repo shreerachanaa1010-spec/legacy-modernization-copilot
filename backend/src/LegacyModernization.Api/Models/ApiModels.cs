@@ -31,5 +31,6 @@ public class PipelineResult
     public Analyzer.Models.ProjectAnalysisResult Analysis { get; set; } = new();
     public List<RefactorSuggestion> Suggestions { get; set; } = new();
     public List<GeneratedTest> GeneratedTests { get; set; } = new();
+    public List<string> ReviewDecisions { get; set; } = new();
     public VerificationResult? Verification { get; set; }
 }

@@ -1,4 +1,4 @@
-import type { ProjectAnalysisResult, RefactorSuggestion, PipelineResult, VerificationResult, GeneratedTest } from './types';
+import type { AnalysisIssue, ProjectAnalysisResult, RefactorSuggestion, PipelineResult, ReviewStatus, VerificationResult, GeneratedTest } from './types';
 
 const BASE = '/api';
 
@@ -33,4 +33,16 @@ export function generateTests(projectPath: string) {
 
 export function runPipeline(projectPath: string, testProjectPath?: string) {
   return request<PipelineResult>('/pipeline', { projectPath, testProjectPath: testProjectPath ?? '' });
+}
+
+export function saveReviewDecision(
+  projectPath: string,
+  issue: AnalysisIssue,
+  suggestion: RefactorSuggestion,
+  decision: ReviewStatus,
+) {
+  return request<{ decision: ReviewStatus; message: string; filePath: string }>(
+    '/review',
+    { projectPath, issue, suggestion, decision },
+  );
 }

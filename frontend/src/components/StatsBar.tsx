@@ -8,14 +8,14 @@ interface StatsBarProps {
 
 export function StatsBar({ items, projectName }: StatsBarProps) {
   const total = items.length;
-  const safe = items.filter(i => i.reviewStatus === 'approved').length;
+  const accepted = items.filter(i => i.reviewStatus === 'approved').length;
   const pending = items.filter(i => i.reviewStatus === 'pending').length;
   const rejected = items.filter(i => i.reviewStatus === 'rejected').length;
   const highSev = items.filter(i => i.issue.severity.toLowerCase() === 'high').length;
 
   const cards = [
     { label: 'Total Issues', value: total, icon: BarChart3, color: 'from-indigo-500 to-purple-500', text: 'text-indigo-400' },
-    { label: 'Verified Safe', value: safe, icon: ShieldCheck, color: 'from-emerald-500 to-green-500', text: 'text-emerald-400' },
+    { label: 'Accepted', value: accepted, icon: ShieldCheck, color: 'from-emerald-500 to-green-500', text: 'text-emerald-400' },
     { label: 'Needs Review', value: pending, icon: AlertTriangle, color: 'from-amber-500 to-yellow-500', text: 'text-amber-400' },
     { label: 'High Severity', value: highSev, icon: XCircle, color: 'from-red-500 to-orange-500', text: 'text-red-400' },
   ];

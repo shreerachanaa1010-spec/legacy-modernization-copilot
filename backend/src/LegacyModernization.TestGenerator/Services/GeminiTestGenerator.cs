@@ -1,6 +1,6 @@
 using Mscc.GenerativeAI;
-using System.IO;
 using LegacyModernization.Core.Models;
+using LegacyModernization.Rag.Models;
 using Microsoft.Extensions.Configuration;
 
 namespace LegacyModernization.TestGenerator.Services;
@@ -17,8 +17,18 @@ public class GeminiTestGenerator : ITestGenerator
         _apiKey = apiKey;
     }
 
-    public async Task<GeneratedTest> GenerateTestAsync(AnalysisIssue issue)
+    public async Task<GeneratedTest> GenerateTestAsync(AnalysisIssue issue, RetrievedContext context)
     {
+        if (context is null || !context.HasRequiredRagEvidence)
+        {
+            return new GeneratedTest
+            {
+                TestClassName = $"{issue.RuleId}GeneratedTests",
+                TargetFile = issue.FilePath,
+                Explanation = "Required Python RAG evidence is unavailable; no test was generated."
+            };
+        }
+
         if (string.IsNullOrWhiteSpace(_apiKey))
         {
             return new GeneratedTest
@@ -29,30 +39,12 @@ public class GeminiTestGenerator : ITestGenerator
             };
         }
 
-        // Attempt to include the original source file as context so Gemini can generate a test against
-        // the real class/method names instead of inventing them from the snippet alone.
-        string fileContent = string.Empty;
-        try
-        {
-            var candidates = new[]
-            {
-                issue.FilePath,
-                Path.Combine(AppContext.BaseDirectory, issue.FilePath ?? ""),
-                Path.Combine(Directory.GetCurrentDirectory(), issue.FilePath ?? ""),
-                Path.GetFullPath(issue.FilePath ?? string.Empty)
-            };
-
-            string found = candidates.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p) && File.Exists(p));
-            if (!string.IsNullOrEmpty(found))
-            {
-                fileContent = File.ReadAllText(found);
-            }
-        }
-        catch
-        {
-            // ignore read errors; we'll proceed without file context
-            fileContent = string.Empty;
-        }
+        var retrievedContext = string.Join(
+            Environment.NewLine + Environment.NewLine,
+            context.Documents.Select(document =>
+                $"Evidence ID: {document.EvidenceId}; source: {document.SourceType}; method: {document.RetrievalMethod}; " +
+                $"file: {document.FilePath}; lines: {document.LineStart}-{document.LineEnd}; symbol: {document.Symbol}" +
+                $"{Environment.NewLine}{document.Content}"));
 
         var prompt = $"""
 You are a senior .NET testing engineer.
@@ -74,11 +66,11 @@ File:
 Code:
 {issue.CodeSnippet}
 
-Context (if available):
-{fileContent}
+Repository context retrieved by RAG:
+{retrievedContext}
 
-Use the source code above as the authoritative context. If a method or class is present in the source,
-generate the test targeting the real class/method names. Do not invent new class names.
+Use the retrieved repository evidence to identify real classes and methods. Do not invent names or
+assume behavior that is not supported by the issue and retrieved evidence.
 
 Requirements:
 
@@ -90,6 +82,7 @@ Requirements:
 6. Create a meaningful test class and test method.
 7. Do not use Markdown code fences.
 8. The test must contain at least one [Fact] or [Theory].
+9. Use only repository context relevant to the issue; if evidence is insufficient, return no test code.
 """;
 
         var model = new GoogleAI(_apiKey).GenerativeModel(GetModelName());
@@ -133,7 +126,7 @@ Requirements:
         TimeSpan.FromSeconds(
             int.TryParse(Environment.GetEnvironmentVariable("GEMINI_TIMEOUT_SECONDS"), out var seconds)
                 ? Math.Clamp(seconds, 5, 300)
-                : 20);
+                : 60);
 
     private static string GetModelName() =>
         Environment.GetEnvironmentVariable("GEMINI_MODEL") ?? "gemini-3.8-flash";

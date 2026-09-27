@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using LegacyModernization.Core.Models;
+using LegacyModernization.Rag.Services;
 using LegacyModernization.TestGenerator.Services;
 
 Console.WriteLine("Test Generator starting...");
@@ -15,9 +16,14 @@ var issue = new AnalysisIssue
     CodeSnippet = "var result = task.Result"
 };
 
+var retriever = new HybridRepositoryRetriever(
+    new SymbolAwareRepositoryRetriever(new FileSystemRepositoryRetriever()),
+    new LongLivedPythonRepositoryRetriever());
+var projectRoot = Path.GetFullPath("samples/LegacySampleProject");
+var context = await retriever.RetrieveAsync(issue, projectRoot);
 var generator = new GeminiTestGenerator();
 
-var generatedTest = await generator.GenerateTestAsync(issue);
+var generatedTest = await generator.GenerateTestAsync(issue, context);
 
 Console.WriteLine();
 Console.WriteLine("========== GENERATED TEST ==========");

@@ -19,6 +19,14 @@ public class GeminiService : ILlmService
         AnalysisIssue issue,
         RetrievedContext context)
     {
+        if (context is null || !context.HasRequiredRagEvidence)
+        {
+            return CreateGenerationFailure(
+                issue,
+                "Required Python RAG evidence is unavailable; no suggestion was generated.",
+                "retrieval-error");
+        }
+
         if (string.IsNullOrWhiteSpace(_apiKey))
         {
             return new RefactorSuggestion
@@ -175,7 +183,7 @@ Evidence requirements:
         TimeSpan.FromSeconds(
             int.TryParse(Environment.GetEnvironmentVariable("GEMINI_TIMEOUT_SECONDS"), out var seconds)
                 ? Math.Clamp(seconds, 5, 300)
-                : 20);
+                : 60);
 
     private static string GetModelName() =>
         Environment.GetEnvironmentVariable("GEMINI_MODEL") ?? "gemini-3.8-flash";

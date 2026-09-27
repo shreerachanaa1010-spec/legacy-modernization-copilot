@@ -64,7 +64,7 @@ export function ResultsPage() {
         <div className="flex gap-1">
           {(['all', 'approved', 'pending', 'rejected'] as FilterType[]).map(f => (
             <button key={f} onClick={() => setFilter(f)} className={filterBtnClass(f)}>
-              {f === 'all' ? 'All' : f === 'approved' ? 'Verified Safe' : f === 'pending' ? 'Needs Review' : 'Rejected'}
+              {f === 'all' ? 'All' : f === 'approved' ? 'Accepted' : f === 'pending' ? 'Needs Review' : 'Rejected'}
             </button>
           ))}
         </div>

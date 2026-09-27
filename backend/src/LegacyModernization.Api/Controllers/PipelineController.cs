@@ -22,6 +22,7 @@ public class PipelineController : ControllerBase
     private readonly ITestGenerator _testGenerator;
     private readonly IRepositoryRetriever _retriever;
     private readonly IAcceptedRefactoringStore _acceptedRefactorings;
+    private readonly IReviewDecisionStore _reviewDecisions;
     private readonly VerificationService _verifier;
 
     public PipelineController(
@@ -30,6 +31,7 @@ public class PipelineController : ControllerBase
         ITestGenerator testGenerator,
         IRepositoryRetriever retriever,
         IAcceptedRefactoringStore acceptedRefactorings,
+        IReviewDecisionStore reviewDecisions,
         VerificationService verifier)
     {
         _analyzer = analyzer;
@@ -37,6 +39,7 @@ public class PipelineController : ControllerBase
         _testGenerator = testGenerator;
         _retriever = retriever;
         _acceptedRefactorings = acceptedRefactorings;
+        _reviewDecisions = reviewDecisions;
         _verifier = verifier;
     }
 
@@ -57,39 +60,58 @@ public class PipelineController : ControllerBase
         // Step 1: Analyze
         var analysis = await _analyzer.AnalyzeAsync(projectFullPath);
         var projectRoot = Path.GetDirectoryName(projectFullPath)!;
+        var retrievalTasks = analysis.Issues.Select(issue =>
+            _retriever.RetrieveAsync(issue, projectRoot, HttpContext.RequestAborted)).ToArray();
 
         // Step 2: Generate suggestions (parallel for speed)
         using var suggestionLimiter = new SemaphoreSlim(2);
-        var suggestionTasks = analysis.Issues.Select(async issue =>
+        var suggestionTasks = analysis.Issues.Select(async (issue, index) =>
         {
             await suggestionLimiter.WaitAsync(HttpContext.RequestAborted);
-            RetrievedContext context;
             try
             {
-                context = await _retriever.RetrieveAsync(issue, projectRoot);
-            }
-            catch
-            {
-                context = new RetrievedContext { Documents = [] };
-            }
-
-            try
-            {
-                return await _llmService.GenerateSuggestionAsync(issue, context);
-            }
-            catch (Exception ex)
-            {
-                return new RefactorSuggestion
+                RetrievedContext context;
+                try
                 {
-                    RuleId = issue.RuleId,
-                    IssueTitle = issue.Title,
-                    Reason = issue.Description,
-                    OriginalCode = issue.CodeSnippet,
-                    RefactoredCode = "",
-                    Explanation = $"Suggestion generation failed safely: {ex.GetBaseException().Message}",
-                    GenerationStatus = "generation-error",
-                    IsSafe = false
-                };
+                    context = await retrievalTasks[index];
+                    if (!context.HasRequiredRagEvidence)
+                    {
+                        throw new InvalidOperationException("Required Python RAG evidence is missing.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    return new RefactorSuggestion
+                    {
+                        RuleId = issue.RuleId,
+                        IssueTitle = issue.Title,
+                        Reason = issue.Description,
+                        OriginalCode = issue.CodeSnippet,
+                        RefactoredCode = "",
+                        Explanation = $"Required context retrieval failed: {ex.GetBaseException().Message}",
+                        GenerationStatus = "retrieval-error",
+                        IsSafe = false
+                    };
+                }
+
+                try
+                {
+                    return await _llmService.GenerateSuggestionAsync(issue, context);
+                }
+                catch (Exception ex)
+                {
+                    return new RefactorSuggestion
+                    {
+                        RuleId = issue.RuleId,
+                        IssueTitle = issue.Title,
+                        Reason = issue.Description,
+                        OriginalCode = issue.CodeSnippet,
+                        RefactoredCode = "",
+                        Explanation = $"Suggestion generation failed safely: {ex.GetBaseException().Message}",
+                        GenerationStatus = "generation-error",
+                        IsSafe = false
+                    };
+                }
             }
             finally
             {
@@ -99,11 +121,17 @@ public class PipelineController : ControllerBase
         var suggestions = (await Task.WhenAll(suggestionTasks)).ToList();
 
         // Step 3: Generate tests for each issue
-        var testTasks = analysis.Issues.Select(async issue =>
+        var testTasks = analysis.Issues.Select(async (issue, index) =>
         {
             try
             {
-                return await _testGenerator.GenerateTestAsync(issue);
+                var context = await retrievalTasks[index];
+                if (!context.HasRequiredRagEvidence)
+                {
+                    throw new InvalidOperationException("Required Python RAG evidence is missing.");
+                }
+
+                return await _testGenerator.GenerateTestAsync(issue, context);
             }
             catch (Exception ex)
             {
@@ -117,6 +145,9 @@ public class PipelineController : ControllerBase
             }
         });
         var generatedTests = (await Task.WhenAll(testTasks)).ToList();
+        var reviewDecisions = await Task.WhenAll(analysis.Issues.Select(async issue =>
+            (await _reviewDecisions.GetDecisionAsync(CreateReviewFingerprint(issue), HttpContext.RequestAborted))?.Decision
+            ?? "pending"));
 
         // Step 4: Verify (if test project provided)
         VerificationResult? verification = null;
@@ -189,6 +220,7 @@ public class PipelineController : ControllerBase
             Analysis = analysis,
             Suggestions = suggestions,
             GeneratedTests = generatedTests,
+            ReviewDecisions = reviewDecisions.ToList(),
             Verification = verification
         });
     }
@@ -198,4 +230,7 @@ public class PipelineController : ControllerBase
 
     private static string Hash(string value) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value ?? string.Empty))).ToLowerInvariant();
+
+    private static string CreateReviewFingerprint(AnalysisIssue issue) =>
+        Hash($"{issue.RuleId}:{Path.GetFullPath(issue.FilePath)}:{issue.LineNumber}:{issue.CodeSnippet}");
 }

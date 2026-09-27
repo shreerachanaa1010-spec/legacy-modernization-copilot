@@ -50,11 +50,26 @@ public class SuggestionsController : ControllerBase
             RetrievedContext context;
             try
             {
-                context = await _retriever.RetrieveAsync(issue, projectRoot);
+                context = await _retriever.RetrieveAsync(issue, projectRoot, HttpContext.RequestAborted);
+                if (!context.HasRequiredRagEvidence)
+                {
+                    throw new InvalidOperationException("Required Python RAG evidence is missing.");
+                }
             }
-            catch
+            catch (Exception ex)
             {
-                context = new RetrievedContext { Documents = [] };
+                suggestionLimiter.Release();
+                return new RefactorSuggestion
+                {
+                    RuleId = issue.RuleId,
+                    IssueTitle = issue.Title,
+                    Reason = issue.Description,
+                    OriginalCode = issue.CodeSnippet,
+                    RefactoredCode = "",
+                    Explanation = $"Required context retrieval failed: {ex.GetBaseException().Message}",
+                    GenerationStatus = "retrieval-error",
+                    IsSafe = false
+                };
             }
 
             try

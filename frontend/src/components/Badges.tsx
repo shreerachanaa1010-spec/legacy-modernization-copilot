@@ -3,7 +3,7 @@ import { ShieldCheck, AlertTriangle, XCircle, Clock } from 'lucide-react';
 
 const config: Record<string, { label: string; icon: typeof ShieldCheck; classes: string }> = {
   approved: {
-    label: 'Verified Safe',
+    label: 'Accepted',
     icon: ShieldCheck,
     classes: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
   },

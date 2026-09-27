@@ -28,6 +28,8 @@ builder.Services.AddSingleton<IVectorStore>(serviceProvider =>
     serviceProvider.GetRequiredService<SqliteVectorStore>());
 builder.Services.AddSingleton<IAcceptedRefactoringStore>(serviceProvider =>
     serviceProvider.GetRequiredService<SqliteVectorStore>());
+builder.Services.AddSingleton<IReviewDecisionStore>(serviceProvider =>
+    serviceProvider.GetRequiredService<SqliteVectorStore>());
 builder.Services.AddSingleton<ITestGenerator, GeminiTestGenerator>();
 builder.Services.AddSingleton<VerificationService>();
 builder.Services.AddSingleton<TestRunner>();
