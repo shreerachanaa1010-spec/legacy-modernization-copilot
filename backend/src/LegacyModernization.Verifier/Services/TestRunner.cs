@@ -27,7 +27,26 @@ public class TestRunner
         var outputTask = process.StandardOutput.ReadToEndAsync();
         var errorTask = process.StandardError.ReadToEndAsync();
 
-        await process.WaitForExitAsync();
+        var timeout = GetTimeout();
+        using var timeoutSource = new CancellationTokenSource(timeout);
+        try
+        {
+            await process.WaitForExitAsync(timeoutSource.Token);
+        }
+        catch (OperationCanceledException) when (timeoutSource.IsCancellationRequested)
+        {
+            try
+            {
+                process.Kill(entireProcessTree: true);
+            }
+            catch (InvalidOperationException)
+            {
+            }
+
+            await process.WaitForExitAsync();
+            var timedOutOutput = await outputTask + Environment.NewLine + await errorTask;
+            return (false, $"dotnet test timed out after {timeout.TotalSeconds:0} seconds.{Environment.NewLine}{timedOutOutput}");
+        }
 
         var output = await outputTask;
         var error = await errorTask;
@@ -39,4 +58,10 @@ public class TestRunner
             combinedOutput
         );
     }
+
+    private static TimeSpan GetTimeout() =>
+        TimeSpan.FromSeconds(
+            int.TryParse(Environment.GetEnvironmentVariable("TEST_RUN_TIMEOUT_SECONDS"), out var seconds)
+                ? Math.Clamp(seconds, 10, 600)
+                : 120);
 }

@@ -214,8 +214,9 @@ These variables are read from the environment or the local `.env` file loaded at
 | Variable | Default | Purpose |
 |---|---|---|
 | `GEMINI_API_KEY` | required for full workflow | Enables Gemini suggestions and generated tests |
-| `GEMINI_MODEL` | `gemini-3.8-flash` | Gemini model used for suggestions and test generation |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Fast Gemini model used for suggestions and test generation |
 | `GEMINI_TIMEOUT_SECONDS` | `60` (clamped 5-300) | Timeout for Gemini API calls |
+| `TEST_RUN_TIMEOUT_SECONDS` | `120` (clamped 10-600) | Maximum duration for each `dotnet test` verification run |
 | `RAG_STORE_MODE` | `sqlite` | Python RAG store: `sqlite`, `pgvector`, `lancedb`, or `allow-fallback` |
 | `RAG_SQLITE_PATH` | `./.legacy_rag.sqlite3` | SQLite database location |
 | `RAG_LANCEDB_PATH` | `./.lancedb` | LanceDB database location (when `RAG_STORE_MODE=lancedb`) |

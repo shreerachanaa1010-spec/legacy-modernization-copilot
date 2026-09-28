@@ -186,5 +186,5 @@ Evidence requirements:
                 : 60);
 
     private static string GetModelName() =>
-        Environment.GetEnvironmentVariable("GEMINI_MODEL") ?? "gemini-3.8-flash";
+        Environment.GetEnvironmentVariable("GEMINI_MODEL") ?? "gemini-3.5-flash-lite";
 }
