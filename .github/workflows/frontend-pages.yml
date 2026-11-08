@@ -33,7 +33,7 @@ jobs:
       - name: Build static frontend
         working-directory: frontend
         env:
-          VITE_API_BASE_URL: https://your-render-app.onrender.com
+          VITE_API_BASE_URL: https://legacy-modernization-copilot-api.onrender.com
         run: npm run build
 
       - name: Upload Pages artifact
