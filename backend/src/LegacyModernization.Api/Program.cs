@@ -4,6 +4,8 @@ using LegacyModernization.Rag.Services;
 using LegacyModernization.TestGenerator.Services;
 using LegacyModernization.Verifier.Services;
 using Scalar.AspNetCore;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 LoadLocalEnvironment();
 var builder = WebApplication.CreateBuilder(args);
@@ -11,6 +13,19 @@ var builder = WebApplication.CreateBuilder(args);
 // Services
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("demo", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
+});
 
 // Register pipeline services
 builder.Services.AddSingleton<IProjectAnalyzer, ProjectAnalyzer>();
@@ -34,12 +49,22 @@ builder.Services.AddSingleton<ITestGenerator, GeminiTestGenerator>();
 builder.Services.AddSingleton<VerificationService>();
 builder.Services.AddSingleton<TestRunner>();
 
-// CORS — allow React dev server
+// CORS — allow local development and deployed frontend hosts
+var allowedFrontendOrigins = builder.Configuration["AllowedFrontendOrigins"]
+    ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? new[]
+    {
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "https://yourusername.github.io"
+    };
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:3000")
+        policy.WithOrigins(allowedFrontendOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -51,9 +76,17 @@ var app = builder.Build();
 app.MapOpenApi();
 app.MapScalarApiReference();
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.UseCors("AllowFrontend");
+app.UseRateLimiter();
 app.UseHttpsRedirection();
-app.MapControllers();
+var controllers = app.MapControllers();
+if (builder.Configuration.GetValue<bool>("DEMO_MODE"))
+{
+    controllers.RequireRateLimiting("demo");
+}
+app.MapFallbackToFile("index.html");
 
 app.Run();
 

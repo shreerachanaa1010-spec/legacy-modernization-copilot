@@ -25,10 +25,12 @@ public class AnalysisController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.ProjectPath))
             return BadRequest("ProjectPath is required.");
 
-        var fullPath = ProjectPathResolver.Resolve(request.ProjectPath);
+        var fullPath = ProjectPathResolver.Resolve(request.ProjectPath, ProjectPathResolver.IsDemoMode);
 
         if (fullPath is null)
-            return NotFound($"No unique .csproj file was found for project path: {request.ProjectPath}");
+            return ProjectPathResolver.IsDemoMode
+                ? BadRequest("Demo mode only allows project paths under samples/.")
+                : NotFound($"No unique .csproj file was found for project path: {request.ProjectPath}");
 
         var result = await _analyzer.AnalyzeAsync(fullPath);
         return Ok(result);

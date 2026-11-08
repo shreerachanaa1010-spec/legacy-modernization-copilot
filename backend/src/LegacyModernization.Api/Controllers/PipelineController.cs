@@ -52,10 +52,22 @@ public class PipelineController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.ProjectPath))
             return BadRequest("ProjectPath is required.");
 
-        var projectFullPath = ProjectPathResolver.Resolve(request.ProjectPath);
+        var projectFullPath = ProjectPathResolver.Resolve(request.ProjectPath, ProjectPathResolver.IsDemoMode);
 
         if (projectFullPath is null)
-            return NotFound($"No unique .csproj file was found for project path: {request.ProjectPath}");
+            return ProjectPathResolver.IsDemoMode
+                ? BadRequest("Demo mode only allows project paths under samples/.")
+                : NotFound($"No unique .csproj file was found for project path: {request.ProjectPath}");
+
+        string? testFullPath = null;
+        if (!string.IsNullOrWhiteSpace(request.TestProjectPath))
+        {
+            testFullPath = ProjectPathResolver.ResolveProjectFile(request.TestProjectPath, ProjectPathResolver.IsDemoMode);
+            if (testFullPath is null)
+                return ProjectPathResolver.IsDemoMode
+                    ? BadRequest("Demo mode only allows test project paths under samples/.")
+                    : NotFound($"Test project file not found: {request.TestProjectPath}");
+        }
 
         // Step 1: Analyze
         var analysis = await _analyzer.AnalyzeAsync(projectFullPath);
@@ -151,63 +163,59 @@ public class PipelineController : ControllerBase
 
         // Step 4: Verify (if test project provided)
         VerificationResult? verification = null;
-        if (!string.IsNullOrWhiteSpace(request.TestProjectPath))
+        if (testFullPath is not null)
         {
-            var testFullPath = Path.GetFullPath(request.TestProjectPath);
-            if (System.IO.File.Exists(testFullPath))
+            // Write generated test files into the test project directory
+            var testProjectDir = Path.GetDirectoryName(testFullPath)!;
+            foreach (var test in generatedTests.Where(t => !string.IsNullOrWhiteSpace(t.TestCode)))
             {
-                // Write generated test files into the test project directory
-                var testProjectDir = Path.GetDirectoryName(testFullPath)!;
-                foreach (var test in generatedTests.Where(t => !string.IsNullOrWhiteSpace(t.TestCode)))
-                {
-                    var testFilePath = Path.Combine(testProjectDir, $"{test.TestClassName}.cs");
-                    await System.IO.File.WriteAllTextAsync(testFilePath, test.TestCode);
-                }
+                var testFilePath = Path.Combine(testProjectDir, $"{test.TestClassName}.cs");
+                await System.IO.File.WriteAllTextAsync(testFilePath, test.TestCode);
+            }
 
-                // Build refactored-files map from suggestions that have refactored code
-                var refactoredFiles = new Dictionary<string, string>();
-                for (int i = 0; i < analysis.Issues.Count; i++)
+            // Build refactored-files map from suggestions that have refactored code
+            var refactoredFiles = new Dictionary<string, string>();
+            for (int i = 0; i < analysis.Issues.Count; i++)
+            {
+                if (i < suggestions.Count
+                    && !string.IsNullOrWhiteSpace(suggestions[i].RefactoredCode)
+                    && !string.IsNullOrWhiteSpace(analysis.Issues[i].FilePath))
                 {
-                    if (i < suggestions.Count
-                        && !string.IsNullOrWhiteSpace(suggestions[i].RefactoredCode)
-                        && !string.IsNullOrWhiteSpace(analysis.Issues[i].FilePath))
+                    var sourceFile = Path.GetFullPath(analysis.Issues[i].FilePath);
+                    if (System.IO.File.Exists(sourceFile) && !refactoredFiles.ContainsKey(sourceFile))
                     {
-                        var sourceFile = Path.GetFullPath(analysis.Issues[i].FilePath);
-                        if (System.IO.File.Exists(sourceFile) && !refactoredFiles.ContainsKey(sourceFile))
-                        {
-                            refactoredFiles[sourceFile] = suggestions[i].RefactoredCode;
-                        }
+                        refactoredFiles[sourceFile] = suggestions[i].RefactoredCode;
                     }
                 }
+            }
 
-                if (refactoredFiles.Count > 0)
-                {
-                    verification = await _verifier.VerifyWithRefactoredCodeAsync(testFullPath, refactoredFiles);
-                }
-                else
-                {
-                    verification = await _verifier.VerifyAsync(testFullPath);
-                }
+            if (refactoredFiles.Count > 0)
+            {
+                verification = await _verifier.VerifyWithRefactoredCodeAsync(testFullPath, refactoredFiles);
+            }
+            else
+            {
+                verification = await _verifier.VerifyAsync(testFullPath);
+            }
 
-                var isSafe = verification.IsSafe;
-                foreach (var suggestion in suggestions)
-                {
-                    suggestion.IsSafe = isSafe;
-                }
+            var isSafe = verification.IsSafe;
+            foreach (var suggestion in suggestions)
+            {
+                suggestion.IsSafe = isSafe;
+            }
 
-                if (isSafe)
+            if (isSafe)
+            {
+                for (var index = 0; index < suggestions.Count && index < analysis.Issues.Count; index++)
                 {
-                    for (var index = 0; index < suggestions.Count && index < analysis.Issues.Count; index++)
-                    {
-                        var suggestion = suggestions[index];
-                        var issue = analysis.Issues[index];
-                        await _acceptedRefactorings.SaveAsync(
-                            CreateFindingFingerprint(issue),
-                            issue.RuleId,
-                            Hash(issue.CodeSnippet),
-                            suggestion.RefactoredCode,
-                            verification.Status);
-                    }
+                    var suggestion = suggestions[index];
+                    var issue = analysis.Issues[index];
+                    await _acceptedRefactorings.SaveAsync(
+                        CreateFindingFingerprint(issue),
+                        issue.RuleId,
+                        Hash(issue.CodeSnippet),
+                        suggestion.RefactoredCode,
+                        verification.Status);
                 }
             }
         }

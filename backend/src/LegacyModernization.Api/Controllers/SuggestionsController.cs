@@ -4,6 +4,7 @@ using LegacyModernization.Core.Models;
 using LegacyModernization.LLM.Services;
 using LegacyModernization.Rag.Models;
 using LegacyModernization.Rag.Services;
+using LegacyModernization.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LegacyModernization.Api.Controllers;
@@ -35,10 +36,12 @@ public class SuggestionsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.ProjectPath))
             return BadRequest("ProjectPath is required.");
 
-        var fullPath = Path.GetFullPath(request.ProjectPath);
+        var fullPath = ProjectPathResolver.Resolve(request.ProjectPath, ProjectPathResolver.IsDemoMode);
 
-        if (!System.IO.File.Exists(fullPath))
-            return NotFound($"Project file not found: {fullPath}");
+        if (fullPath is null)
+            return ProjectPathResolver.IsDemoMode
+                ? BadRequest("Demo mode only allows project paths under samples/.")
+                : NotFound($"No unique .csproj file was found for project path: {request.ProjectPath}");
 
         var analysis = await _analyzer.AnalyzeAsync(fullPath);
         var projectRoot = Path.GetDirectoryName(fullPath)!;

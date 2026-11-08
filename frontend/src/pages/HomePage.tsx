@@ -4,17 +4,33 @@ import { Search, Zap, Shield, GitBranch, ArrowRight, Loader2, Sparkles } from 'l
 import { useStore } from '../store/useStore';
 import { runPipeline } from '../api';
 
+const demoProjects = [
+  {
+    label: 'Legacy Sample Project',
+    path: 'samples/LegacySampleProject/LegacySampleProject.csproj',
+  },
+];
+const demoTestProjects = [
+  {
+    label: 'Legacy Sample Tests',
+    path: 'samples/LegacySampleProject.Tests/LegacySampleProject.Tests.csproj',
+  },
+];
+const demoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+
 export function HomePage() {
   const navigate = useNavigate();
   const { projectPath, setProjectPath, setPipelineResult, setLoading, setError, isLoading, error } = useStore();
   const [testProjectPath, setTestProjectPath] = useState('');
 
   async function handleAnalyze() {
-    if (!projectPath.trim()) return;
+    const selectedProjectPath = projectPath || demoProjects[0].path;
+    if (!selectedProjectPath.trim()) return;
+    if (demoMode) setProjectPath(selectedProjectPath);
     setLoading(true);
     setError(null);
     try {
-      const result = await runPipeline(projectPath.trim(), testProjectPath.trim() || undefined);
+      const result = await runPipeline(selectedProjectPath.trim(), testProjectPath.trim() || undefined);
       setPipelineResult(result);
       navigate('/results');
     } catch (err) {
@@ -73,40 +89,62 @@ export function HomePage() {
       {/* Input card */}
       <div className="w-full max-w-2xl mb-16">
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm shadow-2xl shadow-indigo-500/5">
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            Project Path
+          <label htmlFor="project-path" className="block text-sm font-medium text-slate-300 mb-2">
+            Project {demoMode ? 'Sample' : 'Path'}
           </label>
-          <p className="text-xs text-slate-500 mb-2">
-            Enter a .csproj file path, or a folder containing exactly one .csproj file.
-          </p>
-          <div className="relative mb-3">
-            <input
-              type="text"
-              placeholder="C:\path\to\YourProject.csproj"
-              value={projectPath}
-              onChange={e => setProjectPath(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAnalyze()}
+          {demoMode ? (
+            <select
+              id="project-path"
+              value={projectPath || demoProjects[0].path}
+              onChange={event => setProjectPath(event.target.value)}
               disabled={isLoading}
-              className="w-full px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all text-sm font-mono disabled:opacity-50"
-            />
-          </div>
+              className="w-full mb-3 px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 text-sm disabled:opacity-50"
+            >
+              {demoProjects.map(project => <option key={project.path} value={project.path}>{project.label}</option>)}
+            </select>
+          ) : (
+            <div className="relative mb-3">
+              <input
+                id="project-path"
+                type="text"
+                placeholder="C:\\path\\to\\YourProject.csproj"
+                value={projectPath}
+                onChange={e => setProjectPath(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAnalyze()}
+                disabled={isLoading}
+                className="w-full px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all text-sm font-mono disabled:opacity-50"
+              />
+            </div>
+          )}
           <label className="block text-sm font-medium text-slate-300 mb-2">
             Test Project Path <span className="text-slate-600">(optional)</span>
           </label>
-          <div className="relative mb-4">
-            <input
-              type="text"
-              placeholder="C:\path\to\YourProject.Tests.csproj"
+          {demoMode ? (
+            <select
               value={testProjectPath}
-              onChange={e => setTestProjectPath(e.target.value)}
+              onChange={event => setTestProjectPath(event.target.value)}
               disabled={isLoading}
-              className="w-full px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all text-sm font-mono disabled:opacity-50"
-            />
-          </div>
+              className="w-full mb-4 px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 text-sm disabled:opacity-50"
+            >
+              <option value="">Skip verification</option>
+              {demoTestProjects.map(project => <option key={project.path} value={project.path}>{project.label}</option>)}
+            </select>
+          ) : (
+            <div className="relative mb-4">
+              <input
+                type="text"
+                placeholder="C:\\path\\to\\YourProject.Tests.csproj"
+                value={testProjectPath}
+                onChange={e => setTestProjectPath(e.target.value)}
+                disabled={isLoading}
+                className="w-full px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all text-sm font-mono disabled:opacity-50"
+              />
+            </div>
+          )}
 
           <button
             onClick={handleAnalyze}
-            disabled={isLoading || !projectPath.trim()}
+            disabled={isLoading || (!projectPath.trim() && !demoMode)}
             className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-sm shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-indigo-500/25"
           >
             {isLoading ? (

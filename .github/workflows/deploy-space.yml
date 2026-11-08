@@ -1,0 +1,39 @@
+name: Deploy Hugging Face Space
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: ${{ vars.HF_SPACE_REPO != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Push main to the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_REPO: ${{ vars.HF_SPACE_REPO }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "Set the HF_TOKEN repository secret before enabling Space deployment." >&2
+            exit 1
+          fi
+          if [ -z "$HF_SPACE_REPO" ]; then
+            echo "Set the HF_SPACE_REPO repository variable to owner/space-name." >&2
+            exit 1
+          fi
+          git remote add space "https://huggingface.co/spaces/$HF_SPACE_REPO"
+          cat > "$RUNNER_TEMP/hf-askpass" <<'EOF'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s\n' 'hf_user' ;;
+            *Password*) printf '%s\n' "$HF_TOKEN" ;;
+          esac
+          EOF
+          chmod 700 "$RUNNER_TEMP/hf-askpass"
+          GIT_ASKPASS="$RUNNER_TEMP/hf-askpass" GIT_TERMINAL_PROMPT=0 git push --force space HEAD:main

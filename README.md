@@ -1,3 +1,14 @@
+---
+title: Legacy Modernization Copilot
+emoji: 🛠️
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+short_description: Roslyn analysis and AI-assisted modernization with verification
+---
+
 # Legacy Modernization Copilot
 
 Legacy Modernization Copilot is a local-first developer tool that helps modernize older .NET code safely. It combines Roslyn-based code analysis, repository-aware retrieval, Gemini suggestions, generated tests, and automated verification in one workflow.
@@ -14,13 +25,13 @@ This project turns those steps into a repeatable, evidence-based pipeline.
 
 ## What The Demo Shows
 
-1. Enter a `.csproj` path in the React interface.
+1. Choose the bundled sample in hosted demo mode, or enter a `.csproj` path in local mode.
 2. Roslyn opens the project and detects modernization issues such as sync-over-async code, legacy HTTP APIs, and disposable-resource patterns.
 3. The system retrieves the affected source file and relevant repository context.
 4. Gemini proposes a refactoring and explains the reasoning.
 5. Gemini generates a test for the finding.
 6. If a test project is supplied, the verifier builds and tests the original and refactored versions.
-7. The UI presents the issue, evidence, before/after code, generated test, and review decision. Accept applies a guarded source edit; Reject records the decision without changing code.
+7. The UI presents the issue, evidence, before/after code, generated test, and review decision. Local mode can apply a guarded source edit; hosted demo mode is read-only except for recording Reject decisions.
 
 Generated test code is included in the pipeline response either way. When `TestProjectPath` is supplied, the pipeline writes non-empty generated test files into that test project's directory and runs verification. Without it, tests are returned for review but are not written to disk or run. `POST /api/testgeneration` also returns tests without writing them to a test project.
 
@@ -53,7 +64,6 @@ flowchart LR
 
 **Important design principle:** AI generation proposes a change; verification determines whether it is safe. A suggestion is never trusted only because a model produced it.
 
-<!-- AI-GENERATED-START | user:gt130819 | date:2026-09-25 | model:Kimi K3 -->
 ### Retrieval Flow
 
 Every issue found by the analyzer goes through a hybrid retrieval pipeline before anything is sent to the LLM. Deterministic Roslyn retrieval supplies source and symbol context, while the long-lived Python RAG worker must also return usable evidence. If Python RAG is unavailable or returns no usable evidence, generation reports a retrieval error instead of continuing with Roslyn-only context.
@@ -86,8 +96,6 @@ Key behaviors of the retrieval layer:
 - `LongLivedPythonRepositoryRetriever` keeps `python/agentic_rag.py --server` alive across requests. Missing scripts, worker failures, and empty RAG evidence fail retrieval; there is no filesystem-only fallback.
 - The worker returns evidence only; it does not make a second Gemini completion for each context query. Standalone Python CLI queries still generate an answer.
 - SQLite skips embedding unchanged chunks and prunes common generated/build directories (including `bin`, `obj`, `node_modules`, `.venv`, and `dist`) during indexing. First-time indexing can still take longer, especially when Gemini embeddings are enabled.
-<!-- AI-GENERATED-END | user:gt130819 | date:2026-09-25 -->
-
 ## Modernization Rules (LMC001-LMC006)
 
 The Roslyn analyzer includes six deterministic rules, each covered by unit tests in `backend/src/LegacyModernization.Analyzer.Tests/`:
@@ -198,7 +206,7 @@ Example complete-pipeline request:
 
 ### Review Decisions
 
-The Issue Detail page sends Accept, Reject, and Reset actions to `POST /api/review`. Decisions are stored in the local SQLite database and restored when the pipeline is run again.
+The Issue Detail page sends review actions to `POST /api/review`. Decisions are stored in the local SQLite database and restored when the pipeline is run again. In demo mode, review is read-only except for Reject: Accept and Reset are disabled so visitors cannot modify the shared sample sources.
 
 - **Accept & Apply** replaces the issue's original code snippet in its source file. The source file must be inside the analyzed project, the original snippet must match exactly once, and the replacement must not increase C# syntax errors. The endpoint refuses stale, ambiguous, empty, or syntactically invalid edits.
 - **Reject** stores the rejection and does not modify source code.
@@ -210,10 +218,10 @@ Acceptance is a user decision, not proof that a change is safe. Applying a sugge
 
 These variables are read from the environment or the local `.env` file loaded at startup.
 
-<!-- AI-GENERATED-START | user:gt130819 | date:2026-09-25 | model:Kimi K3 -->
 | Variable | Default | Purpose |
 |---|---|---|
 | `GEMINI_API_KEY` | required for full workflow | Enables Gemini suggestions and generated tests |
+| `DEMO_MODE` | `false` | Restricts API project paths to bundled `samples/` and limits clients to 10 API requests per minute |
 | `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Fast Gemini model used for suggestions and test generation |
 | `GEMINI_TIMEOUT_SECONDS` | `60` (clamped 5-300) | Timeout for Gemini API calls |
 | `TEST_RUN_TIMEOUT_SECONDS` | `120` (clamped 10-600) | Maximum duration for each `dotnet test` verification run |
@@ -227,17 +235,13 @@ These variables are read from the environment or the local `.env` file loaded at
 | `PYTHON` | `python` | Python executable used by the long-lived retrieval worker |
 | `RAG_PYTHON_TIMEOUT_SECONDS` | `5` | Per-query timeout for the Python retrieval worker |
 | `RAG_PYTHON_MAX_OUTPUT_BYTES` | `1048576` | Maximum response size accepted from the Python worker |
-<!-- AI-GENERATED-END | user:gt130819 | date:2026-09-25 -->
-
 ## Validation
 
-<!-- AI-GENERATED-START | user:gt130819 | date:2026-09-25 | model:Kimi K3 -->
 Run the analyzer rule tests:
 
 ```powershell
 dotnet test backend/src/LegacyModernization.Analyzer.Tests/LegacyModernization.Analyzer.Tests.csproj
 ```
-<!-- AI-GENERATED-END | user:gt130819 | date:2026-09-25 -->
 
 Run the backend RAG tests:
 ```powershell
@@ -283,14 +287,12 @@ backend/src/
   LegacyModernization.Rag/            Retrieval, SQLite, FTS5, and indexing
   LegacyModernization.TestGenerator/  Generated test creation
   LegacyModernization.Verifier/       Build, test, and behavior verification
-<!-- AI-GENERATED-START | user:gt130819 | date:2026-09-25 | model:Kimi K3 -->
   LegacyModernization.Analyzer.Tests/ Unit tests for the six modernization rules
 backend/tests/
   LegacyModernization.Rag.Tests/      Retrieval, indexing, and store tests
   LegacyModernization.Api.Tests/      Accept, reject, reset, and guarded source-edit tests
 tools/AnalyzerHost/                   Console host that runs analysis and writes reports/
 generated-tests/                      Output location for generated test files
-<!-- AI-GENERATED-END | user:gt130819 | date:2026-09-25 -->
 frontend/                              React + Vite review interface
 python/                                Retrieval worker and evaluation tools
 samples/                               Legacy and refactored demonstration projects
@@ -307,13 +309,24 @@ docs/                                  Detailed RAG implementation plan
 
 ## Docker
 
-Docker Desktop is optional:
+Build the unified API and frontend image from the repository root:
+
+```powershell
+docker build -t legacy-modernization-copilot .
+docker run --rm -p 7860:7860 -e GEMINI_API_KEY=your_key legacy-modernization-copilot
+```
+
+The root image enables demo mode and serves the UI and API on port `7860`. Add `GEMINI_API_KEY` as a runtime secret; never bake it into the image. For local development, Docker Compose still starts separate frontend and backend containers:
 
 ```powershell
 docker compose up --build
 ```
 
-The frontend is exposed at `http://localhost:5173` and the backend at `http://localhost:5198`.
+The local frontend is exposed at `http://localhost:5173` and the backend at `http://localhost:5198`.
+
+### Hugging Face Space
+
+Create a Docker Space, then add `GEMINI_API_KEY` as a Space secret. To enable automatic deployment from GitHub, add an `HF_TOKEN` repository secret with write access to the Space and an `HF_SPACE_REPO` repository variable in `owner/space-name` form. The deployment workflow force-syncs the Space's `main` branch from this repository's `main` branch; do not make manual source changes in the Space repo.
 
 ## Further Reading
 

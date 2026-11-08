@@ -62,6 +62,28 @@ public sealed class ReviewControllerTests
         Assert.IsType<ConflictObjectResult>(result);
     }
 
+    [Fact]
+    public async Task DemoMode_RejectsApprovalWithoutChangingSource()
+    {
+        const string source = "class Service { int Value => 1; }";
+        using var repository = new TemporaryRepository(source);
+        var controller = new ReviewController(new InMemoryReviewDecisionStore());
+        var previousDemoMode = Environment.GetEnvironmentVariable("DEMO_MODE");
+        Environment.SetEnvironmentVariable("DEMO_MODE", "true");
+
+        try
+        {
+            var result = await controller.SaveDecision(repository.CreateRequest("approved"), CancellationToken.None);
+
+            Assert.IsType<ConflictObjectResult>(result);
+            Assert.Equal(source, await File.ReadAllTextAsync(repository.SourcePath));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("DEMO_MODE", previousDemoMode);
+        }
+    }
+
     private sealed class InMemoryReviewDecisionStore : IReviewDecisionStore
     {
         public List<ReviewDecision> Decisions { get; } = [];

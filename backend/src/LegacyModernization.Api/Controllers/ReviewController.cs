@@ -38,10 +38,17 @@ public sealed class ReviewController : ControllerBase
             return BadRequest("Decision must be approved, rejected, or pending.");
         }
 
-        var projectFile = ProjectPathResolver.Resolve(request.ProjectPath);
+        if (ProjectPathResolver.IsDemoMode && decision != "rejected")
+        {
+            return Conflict("Accept and reset actions are disabled in demo mode.");
+        }
+
+        var projectFile = ProjectPathResolver.Resolve(request.ProjectPath, ProjectPathResolver.IsDemoMode);
         if (projectFile is null)
         {
-            return NotFound($"No unique .csproj file was found for project path: {request.ProjectPath}");
+            return ProjectPathResolver.IsDemoMode
+                ? BadRequest("Demo mode only allows project paths under samples/.")
+                : NotFound($"No unique .csproj file was found for project path: {request.ProjectPath}");
         }
 
         var projectRoot = Path.GetDirectoryName(projectFile)!;

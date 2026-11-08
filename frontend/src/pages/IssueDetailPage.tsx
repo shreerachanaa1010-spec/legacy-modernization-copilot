@@ -7,6 +7,8 @@ import { StatusBadge, SeverityBadge } from '../components/Badges';
 import { DiffViewer } from '../components/DiffViewer';
 import { CodeBlock } from '../components/CodeBlock';
 
+const demoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+
 const ruleColors: Record<string, string> = {
   LMC001: 'from-red-500 to-orange-500',
   LMC002: 'from-amber-500 to-yellow-500',
@@ -169,18 +171,20 @@ export function IssueDetailPage() {
           <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-6">
             <h2 className="text-sm font-semibold text-slate-300 mb-4">Review Decision</h2>
             <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => handleReviewDecision('approved')}
-                disabled={isReviewing || reviewStatus === 'approved'}
-                className={`${actionBtnBase} ${
-                  reviewStatus === 'approved'
-                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
-                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20'
-                }`}
-              >
-                <ThumbsUp className="w-4 h-4" />
-                {reviewStatus === 'approved' ? 'Accepted' : 'Accept & Apply'}
-              </button>
+              {!demoMode && (
+                <button
+                  onClick={() => handleReviewDecision('approved')}
+                  disabled={isReviewing || reviewStatus === 'approved'}
+                  className={`${actionBtnBase} ${
+                    reviewStatus === 'approved'
+                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
+                      : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20'
+                  }`}
+                >
+                  <ThumbsUp className="w-4 h-4" />
+                  {reviewStatus === 'approved' ? 'Accepted' : 'Accept & Apply'}
+                </button>
+              )}
               <button
                 onClick={() => handleReviewDecision('rejected')}
                 disabled={isReviewing || reviewStatus === 'approved'}
@@ -193,7 +197,7 @@ export function IssueDetailPage() {
                 <ThumbsDown className="w-4 h-4" />
                 {reviewStatus === 'rejected' ? 'Rejected' : 'Reject'}
               </button>
-              {reviewStatus !== 'pending' && (
+              {!demoMode && reviewStatus !== 'pending' && (
                 <button
                   onClick={() => handleReviewDecision('pending')}
                   disabled={isReviewing}

@@ -1,0 +1,14 @@
+.git/
+.vs/
+.env
+.env.*
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/__pycache__/
+**/.pytest_cache/
+.legacy_rag.sqlite3
+.lancedb/
+reports/*
+!reports/.gitkeep

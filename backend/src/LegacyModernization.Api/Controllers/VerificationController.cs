@@ -1,4 +1,5 @@
 using LegacyModernization.Api.Models;
+using LegacyModernization.Api.Services;
 using LegacyModernization.Verifier.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -24,10 +25,12 @@ public class VerificationController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.TestProjectPath))
             return BadRequest("TestProjectPath is required.");
 
-        var fullPath = Path.GetFullPath(request.TestProjectPath);
+        var fullPath = ProjectPathResolver.ResolveProjectFile(request.TestProjectPath, ProjectPathResolver.IsDemoMode);
 
-        if (!System.IO.File.Exists(fullPath))
-            return NotFound($"Test project file not found: {fullPath}");
+        if (fullPath is null)
+            return ProjectPathResolver.IsDemoMode
+                ? BadRequest("Demo mode only allows project paths under samples/.")
+                : NotFound($"Test project file not found: {request.TestProjectPath}");
 
         var result = await _verifier.VerifyAsync(fullPath);
         return Ok(result);
