@@ -19,7 +19,17 @@ public class PatternRuleEngine
             new ConfigureAwaitRule(),
             new DisposePatternRule(),
             new HttpClientInstantiationRule(),
-            new DateTimeNowRule()
+            new DateTimeNowRule(),
+            new ThreadSleepRule(),
+            new StringCaseRule(),
+            new StringComparisonRule(),
+            new AsyncVoidMethodRule(),
+            new DateTimeParseRule(),
+            new NewRandomRule(),
+            new TaskRunRule(),
+            new LockThisRule(),
+            new CancellationTokenRule(),
+            new StringLiteralComparisonRule()
         };
     }
 

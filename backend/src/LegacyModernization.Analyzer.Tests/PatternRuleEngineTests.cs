@@ -44,6 +44,45 @@ public class PatternRuleEngineTests
     }
 
     [Fact]
+    public void Detects_Additional_Modernization_Rules()
+    {
+        var code = """
+            using System;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            class Service
+            {
+                async void BadAsync() {
+                    Thread.Sleep(100);
+                    var lower = "Test".ToLower();
+                    var equals = "A".Equals("B");
+                    var parsed = DateTime.Parse("2024-01-01");
+                    var random = new Random();
+                    Task.Run(() => Console.WriteLine("work"));
+                    lock (this) { }
+                    var isEmpty = value == "";
+                }
+
+                Task DoWork() => Task.CompletedTask;
+                Task DoWorkAsync(CancellationToken token) => Task.CompletedTask;
+            }
+            """;
+
+        var issues = _engine.Analyze(Parse(code), "test.cs");
+
+        Assert.Contains(issues, i => i.RuleId == "LMC007");
+        Assert.Contains(issues, i => i.RuleId == "LMC008");
+        Assert.Contains(issues, i => i.RuleId == "LMC009");
+        Assert.Contains(issues, i => i.RuleId == "LMC010");
+        Assert.Contains(issues, i => i.RuleId == "LMC011");
+        Assert.Contains(issues, i => i.RuleId == "LMC012");
+        Assert.Contains(issues, i => i.RuleId == "LMC013");
+        Assert.Contains(issues, i => i.RuleId == "LMC014");
+        Assert.Contains(issues, i => i.RuleId == "LMC016");
+    }
+
+    [Fact]
     public void Returns_Empty_For_Clean_Code()
     {
         var code = """
