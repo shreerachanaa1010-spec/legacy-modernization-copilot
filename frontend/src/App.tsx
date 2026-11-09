@@ -4,9 +4,11 @@ import { HomePage } from './pages/HomePage';
 import { ResultsPage } from './pages/ResultsPage';
 import { IssueDetailPage } from './pages/IssueDetailPage';
 
+const basename = import.meta.env.DEV ? '/' : '/legacy-modernization-copilot';
+
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
